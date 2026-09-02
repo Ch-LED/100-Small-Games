@@ -1,0 +1,14 @@
+# Godot 4+ specific ignores
+.godot/
+/android/
+
+# Obsidian: local layout files stay local; core config is committed
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+
+# Local governance / collaboration docs (NOT part of versioned design docs)
+/CLAUDE.md
+/CONSTITUTION.md
+/DECISION_LOG.md
+/SESSION_HANDOFF.md
+.claude/
