@@ -1,0 +1,58 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://00-hub/scripts/grid_screen.gd" id="1_s"]
+
+[node name="GridScreen" type="Control"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_s")
+
+[node name="Root" type="VBoxContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = 12.0
+offset_right = -20.0
+offset_bottom = -12.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 12
+
+[node name="Header" type="HBoxContainer" parent="Root"]
+
+[node name="BackButton" type="Button" parent="Root/Header"]
+custom_minimum_size = Vector2(150, 0)
+text = "< 返回标题"
+
+[node name="Spacer" type="Control" parent="Root/Header"]
+size_flags_horizontal = 3
+
+[node name="CountPrefix" type="Label" parent="Root/Header"]
+theme_override_colors/font_color = Color(0.6, 0.63, 0.72, 1)
+vertical_alignment = 1
+text = "共 "
+
+[node name="CountNumber" type="Label" parent="Root/Header"]
+theme_override_colors/font_color = Color(0.95, 0.96, 1, 1)
+vertical_alignment = 1
+text = "0"
+
+[node name="CountSuffix" type="Label" parent="Root/Header"]
+theme_override_colors/font_color = Color(0.6, 0.63, 0.72, 1)
+vertical_alignment = 1
+text = " 款游戏"
+
+[node name="RefreshButton" type="Button" parent="Root/Header"]
+custom_minimum_size = Vector2(90, 0)
+text = "刷新"
+
+[node name="Scroll" type="ScrollContainer" parent="Root"]
+size_flags_vertical = 3
+horizontal_scroll_mode = 2
+
+[node name="Grid" type="GridContainer" parent="Root/Scroll"]
+size_flags_horizontal = 3

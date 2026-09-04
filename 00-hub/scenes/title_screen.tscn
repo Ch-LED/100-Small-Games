@@ -1,0 +1,59 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://00-hub/scripts/title_screen.gd" id="1_s"]
+[ext_resource type="Texture2D" path="res://icon.svg" id="2_logo"]
+
+[node name="TitleScreen" type="Control"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_s")
+
+[node name="Center" type="CenterContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="Center"]
+theme_override_constants/separation = 22
+
+[node name="Logo" type="TextureRect" parent="Center/VBox"]
+custom_minimum_size = Vector2(176, 176)
+size_flags_horizontal = 4
+texture = ExtResource("2_logo")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="TitleLabel" type="Label" parent="Center/VBox"]
+theme_override_colors/font_color = Color(0.95, 0.96, 1, 1)
+theme_override_font_sizes/font_size = 56
+text = "100 Small Games"
+horizontal_alignment = 1
+
+[node name="Subtitle" type="Label" parent="Center/VBox"]
+theme_override_colors/font_color = Color(0.65, 0.68, 0.78, 1)
+theme_override_font_sizes/font_size = 20
+text = "One engine, one hundred small worlds."
+horizontal_alignment = 1
+
+[node name="StartButton" type="Button" parent="Center/VBox"]
+custom_minimum_size = Vector2(300, 0)
+size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 26
+text = "开始游戏"
+
+[node name="SubButtons" type="HBoxContainer" parent="Center/VBox"]
+alignment = 1
+theme_override_constants/separation = 16
+
+[node name="FullscreenButton" type="Button" parent="Center/VBox/SubButtons"]
+custom_minimum_size = Vector2(150, 48)
+text = "切换全屏"
+
+[node name="QuitButton" type="Button" parent="Center/VBox/SubButtons"]
+custom_minimum_size = Vector2(150, 48)
+text = "退出"

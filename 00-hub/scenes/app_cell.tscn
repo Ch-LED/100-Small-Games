@@ -1,0 +1,7 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://00-hub/scripts/app_cell.gd" id="1_s"]
+
+[node name="AppCell" type="Button"]
+custom_minimum_size = Vector2(150, 176)
+script = ExtResource("1_s")
