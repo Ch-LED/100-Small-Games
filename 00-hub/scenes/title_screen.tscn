@@ -1,9 +1,10 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene format=3 uid="uid://cs0f846iqr8se"]
 
-[ext_resource type="Script" path="res://00-hub/scripts/title_screen.gd" id="1_s"]
-[ext_resource type="Texture2D" path="res://icon.svg" id="2_logo"]
+[ext_resource type="Script" uid="uid://bdwlh4sa4foph" path="res://00-hub/scripts/title_screen.gd" id="1_s"]
+[ext_resource type="Texture2D" uid="uid://bs40e8mvd38lr" path="res://icon.svg" id="2_logo"]
 
-[node name="TitleScreen" type="Control"]
+[node name="TitleScreen" type="Control" unique_id=1475207189]
+layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -11,49 +12,57 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_s")
 
-[node name="Center" type="CenterContainer" parent="."]
-anchors_preset = 15
+[node name="Center" type="CenterContainer" parent="." unique_id=1077944615]
+layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="VBox" type="VBoxContainer" parent="Center"]
+[node name="VBox" type="VBoxContainer" parent="Center" unique_id=1593685569]
+layout_mode = 2
 theme_override_constants/separation = 22
 
-[node name="Logo" type="TextureRect" parent="Center/VBox"]
+[node name="Logo" type="TextureRect" parent="Center/VBox" unique_id=2129933522]
 custom_minimum_size = Vector2(176, 176)
+layout_mode = 2
 size_flags_horizontal = 4
 texture = ExtResource("2_logo")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="TitleLabel" type="Label" parent="Center/VBox"]
+[node name="TitleLabel" type="Label" parent="Center/VBox" unique_id=830171606]
+layout_mode = 2
 theme_override_colors/font_color = Color(0.95, 0.96, 1, 1)
 theme_override_font_sizes/font_size = 56
 text = "100 Small Games"
 horizontal_alignment = 1
 
-[node name="Subtitle" type="Label" parent="Center/VBox"]
+[node name="Subtitle" type="Label" parent="Center/VBox" unique_id=952476321]
+layout_mode = 2
 theme_override_colors/font_color = Color(0.65, 0.68, 0.78, 1)
 theme_override_font_sizes/font_size = 20
 text = "One engine, one hundred small worlds."
 horizontal_alignment = 1
 
-[node name="StartButton" type="Button" parent="Center/VBox"]
+[node name="StartButton" type="Button" parent="Center/VBox" unique_id=1525858460]
 custom_minimum_size = Vector2(300, 0)
+layout_mode = 2
 size_flags_horizontal = 4
 theme_override_font_sizes/font_size = 26
 text = "开始游戏"
 
-[node name="SubButtons" type="HBoxContainer" parent="Center/VBox"]
-alignment = 1
+[node name="SubButtons" type="HBoxContainer" parent="Center/VBox" unique_id=398545508]
+layout_mode = 2
 theme_override_constants/separation = 16
+alignment = 1
 
-[node name="FullscreenButton" type="Button" parent="Center/VBox/SubButtons"]
+[node name="FullscreenButton" type="Button" parent="Center/VBox/SubButtons" unique_id=841474434]
 custom_minimum_size = Vector2(150, 48)
+layout_mode = 2
 text = "切换全屏"
 
-[node name="QuitButton" type="Button" parent="Center/VBox/SubButtons"]
+[node name="QuitButton" type="Button" parent="Center/VBox/SubButtons" unique_id=1764033783]
 custom_minimum_size = Vector2(150, 48)
+layout_mode = 2
 text = "退出"
