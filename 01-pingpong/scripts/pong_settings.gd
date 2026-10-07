@@ -44,9 +44,7 @@ static func load_all() -> Dictionary:
 	}
 
 	cfg["ai"] = {
-		"cooldown_enabled": file.get_value("ai", "cooldown_enabled", true),
-		"reaction_min": file.get_value("ai", "reaction_min", 0.08),
-		"reaction_max": file.get_value("ai", "reaction_max", 0.12),
+		"follow_rate": file.get_value("ai", "follow_rate", 6.0),
 		"dead_zone": file.get_value("ai", "dead_zone", 6.0),
 	}
 

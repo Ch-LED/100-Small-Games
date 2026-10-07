@@ -51,6 +51,12 @@ func set_target(dir: int) -> void:
 	_target = clampi(dir, -1, 1)
 
 
+## Eases by `t` of the remaining distance to a target y (0..1), clamped to the
+## field. The AI drives the paddle this way; the player uses set_target.
+func ease_toward(target_y: float, t: float) -> void:
+	position.y = clampf(lerpf(position.y, target_y, t), _min_y, _max_y)
+
+
 func refresh_bounds(min_y: float, max_y: float) -> void:
 	_min_y = min_y
 	_max_y = max_y
