@@ -1,0 +1,11 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://03-pacman/scripts/pacman_fruit.gd" id="1_fruit"]
+
+[node name="Fruit" type="Area2D"]
+script = ExtResource("1_fruit")
+
+[node name="Collision" type="CollisionShape2D" parent="."]
+
+[node name="Sprite" type="Sprite2D" parent="."]
+texture_filter = 1

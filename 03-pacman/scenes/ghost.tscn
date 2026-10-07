@@ -1,0 +1,16 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://03-pacman/scripts/pacman_ghost.gd" id="1_ghost"]
+
+[node name="Ghost" type="Area2D"]
+script = ExtResource("1_ghost")
+
+[node name="Collision" type="CollisionShape2D" parent="."]
+
+[node name="Visual" type="Node2D" parent="."]
+
+[node name="Body" type="Sprite2D" parent="Visual"]
+texture_filter = 1
+
+[node name="Eyes" type="Sprite2D" parent="Visual"]
+texture_filter = 1

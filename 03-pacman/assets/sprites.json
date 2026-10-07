@@ -1,0 +1,288 @@
+{ "frames": {
+   "sprites (pacman) #up 0.aseprite": {
+    "frame": { "x": 25, "y": 14, "w": 12, "h": 12 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 2, "y": 2, "w": 12, "h": 12 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 100
+   },
+   "sprites (pacman) #up 1.aseprite": {
+    "frame": { "x": 23, "y": 26, "w": 12, "h": 11 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 2, "y": 3, "w": 12, "h": 11 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 100
+   },
+   "sprites (pacman) #up 2.aseprite": {
+    "frame": { "x": 0, "y": 27, "w": 12, "h": 8 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 2, "y": 6, "w": 12, "h": 8 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 100
+   },
+   "sprites (pacman) #down 0.aseprite": {
+    "frame": { "x": 25, "y": 14, "w": 12, "h": 12 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 2, "y": 2, "w": 12, "h": 12 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 100
+   },
+   "sprites (pacman) #down 1.aseprite": {
+    "frame": { "x": 35, "y": 26, "w": 12, "h": 11 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 2, "y": 2, "w": 12, "h": 11 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 100
+   },
+   "sprites (pacman) #down 2.aseprite": {
+    "frame": { "x": 0, "y": 35, "w": 12, "h": 8 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 2, "y": 2, "w": 12, "h": 8 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 100
+   },
+   "sprites (pacman) #right 0.aseprite": {
+    "frame": { "x": 25, "y": 14, "w": 12, "h": 12 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 2, "y": 2, "w": 12, "h": 12 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 100
+   },
+   "sprites (pacman) #right 1.aseprite": {
+    "frame": { "x": 47, "y": 26, "w": 11, "h": 12 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 2, "y": 2, "w": 11, "h": 12 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 100
+   },
+   "sprites (pacman) #right 2.aseprite": {
+    "frame": { "x": 23, "y": 37, "w": 8, "h": 12 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 2, "y": 2, "w": 8, "h": 12 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 100
+   },
+   "sprites (pacman) #death 0.aseprite": {
+    "frame": { "x": 23, "y": 37, "w": 8, "h": 12 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 2, "y": 2, "w": 8, "h": 12 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 100
+   },
+   "sprites (pacman) #death 1.aseprite": {
+    "frame": { "x": 68, "y": 26, "w": 5, "h": 14 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 2, "y": 1, "w": 5, "h": 14 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 100
+   },
+   "sprites (pacman) #death 2.aseprite": {
+    "frame": { "x": 31, "y": 37, "w": 5, "h": 9 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 1, "y": 4, "w": 5, "h": 9 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 100
+   },
+   "sprites (pacman) #death 3.aseprite": {
+    "frame": { "x": 66, "y": 40, "w": 5, "h": 5 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 0, "y": 5, "w": 5, "h": 5 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 100
+   },
+   "sprites (pacman) #death 4.aseprite": {
+    "frame": { "x": 0, "y": 0, "w": 15, "h": 13 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 0, "y": 2, "w": 15, "h": 13 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 100
+   },
+   "sprites (ghost_body) #walk 0.aseprite": {
+    "frame": { "x": 15, "y": 0, "w": 12, "h": 14 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 2, "y": 1, "w": 12, "h": 14 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 100
+   },
+   "sprites (ghost_body) #walk 1.aseprite": {
+    "frame": { "x": 27, "y": 0, "w": 12, "h": 14 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 2, "y": 1, "w": 12, "h": 14 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 100
+   },
+   "sprites (ghost_eyes) #up.aseprite": {
+    "frame": { "x": 36, "y": 37, "w": 10, "h": 4 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 3, "y": 3, "w": 10, "h": 4 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 100
+   },
+   "sprites (ghost_eyes) #right.aseprite": {
+    "frame": { "x": 46, "y": 38, "w": 10, "h": 4 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 4, "y": 4, "w": 10, "h": 4 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 100
+   },
+   "sprites (ghost_eyes) #left.aseprite": {
+    "frame": { "x": 56, "y": 38, "w": 10, "h": 4 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 2, "y": 4, "w": 10, "h": 4 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 100
+   },
+   "sprites (ghost_eyes) #down.aseprite": {
+    "frame": { "x": 12, "y": 39, "w": 10, "h": 4 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 3, "y": 5, "w": 10, "h": 4 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 100
+   },
+   "sprites (ghost_fright) #blue 0.aseprite": {
+    "frame": { "x": 39, "y": 0, "w": 12, "h": 14 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 2, "y": 1, "w": 12, "h": 14 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 100
+   },
+   "sprites (ghost_fright) #blue 1.aseprite": {
+    "frame": { "x": 51, "y": 0, "w": 12, "h": 14 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 2, "y": 1, "w": 12, "h": 14 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 100
+   },
+   "sprites (ghost_fright) #flash 0.aseprite": {
+    "frame": { "x": 63, "y": 0, "w": 12, "h": 14 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 2, "y": 1, "w": 12, "h": 14 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 100
+   },
+   "sprites (ghost_fright) #flash 1.aseprite": {
+    "frame": { "x": 0, "y": 13, "w": 12, "h": 14 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 2, "y": 1, "w": 12, "h": 14 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 100
+   },
+   "sprites (pellet) #small.aseprite": {
+    "frame": { "x": 73, "y": 14, "w": 2, "h": 2 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 7, "y": 7, "w": 2, "h": 2 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 100
+   },
+   "sprites (pellet) #power 0.aseprite": {
+    "frame": { "x": 37, "y": 14, "w": 12, "h": 12 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 2, "y": 2, "w": 12, "h": 12 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 100
+   },
+   "sprites (pellet) #power 1.aseprite": {
+    "frame": { "x": 49, "y": 14, "w": 12, "h": 12 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 2, "y": 2, "w": 12, "h": 12 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 100
+   },
+   "sprites (fruit) #cherry.aseprite": {
+    "frame": { "x": 61, "y": 14, "w": 12, "h": 12 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 3, "y": 1, "w": 12, "h": 12 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 100
+   },
+   "sprites (fruit) #strawberry.aseprite": {
+    "frame": { "x": 58, "y": 26, "w": 10, "h": 12 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 3, "y": 1, "w": 10, "h": 12 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 100
+   },
+   "sprites (fruit) #orange.aseprite": {
+    "frame": { "x": 12, "y": 14, "w": 13, "h": 12 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 1, "y": 2, "w": 13, "h": 12 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 100
+   },
+   "sprites (fruit) #apple.aseprite": {
+    "frame": { "x": 12, "y": 26, "w": 11, "h": 13 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 2, "y": 1, "w": 11, "h": 13 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 100
+   }
+ },
+ "meta": {
+  "app": "http://www.aseprite.org/",
+  "version": "1.2.25-dev",
+  "image": "sprites.png",
+  "format": "RGBA8888",
+  "size": { "w": 75, "h": 49 },
+  "scale": "1",
+  "frameTags": [
+   { "name": "up", "from": 0, "to": 2, "direction": "forward" },
+   { "name": "down", "from": 3, "to": 5, "direction": "forward" },
+   { "name": "right", "from": 6, "to": 8, "direction": "forward" },
+   { "name": "death", "from": 9, "to": 13, "direction": "forward" },
+   { "name": "walk", "from": 14, "to": 15, "direction": "forward" },
+   { "name": "up", "from": 16, "to": 16, "direction": "forward" },
+   { "name": "right", "from": 17, "to": 17, "direction": "forward" },
+   { "name": "left", "from": 18, "to": 18, "direction": "forward" },
+   { "name": "down", "from": 19, "to": 19, "direction": "forward" },
+   { "name": "blue", "from": 20, "to": 21, "direction": "forward" },
+   { "name": "flash", "from": 22, "to": 23, "direction": "forward" },
+   { "name": "small", "from": 24, "to": 24, "direction": "forward" },
+   { "name": "power", "from": 25, "to": 26, "direction": "forward" },
+   { "name": "cherry", "from": 27, "to": 27, "direction": "forward" },
+   { "name": "strawberry", "from": 28, "to": 28, "direction": "forward" },
+   { "name": "orange", "from": 29, "to": 29, "direction": "forward" },
+   { "name": "apple", "from": 30, "to": 30, "direction": "forward" }
+  ],
+  "layers": [
+   { "name": "fruit", "opacity": 255, "blendMode": "normal" },
+   { "name": "pellet", "opacity": 255, "blendMode": "normal" },
+   { "name": "ghost_fright", "opacity": 255, "blendMode": "normal" },
+   { "name": "ghost_body", "opacity": 255, "blendMode": "normal" },
+   { "name": "ghost_eyes", "opacity": 255, "blendMode": "normal" },
+   { "name": "pacman", "opacity": 255, "blendMode": "normal" }
+  ],
+  "slices": [
+  ]
+ }
+}

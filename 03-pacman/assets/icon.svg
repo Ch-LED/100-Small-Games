@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <rect width="128" height="128" rx="24" fill="#040830"/>
+  <!-- Pac-Man, mouth open to the right -->
+  <path d="M62 64 L112 34 A48 48 0 1 0 112 94 Z" fill="#FFE600"/>
+  <!-- three ghosts lined up on the right -->
+  <g>
+    <path d="M78 74 h14 v26 l-3.5 -5 -3.5 5 -3.5 -5 -3.5 5 Z" fill="#FF2A2A"/>
+    <circle cx="83" cy="80" r="2.6" fill="#FFFFFF"/>
+    <circle cx="89" cy="80" r="2.6" fill="#FFFFFF"/>
+  </g>
+  <g>
+    <path d="M96 74 h14 v26 l-3.5 -5 -3.5 5 -3.5 -5 -3.5 5 Z" fill="#FFB8FF"/>
+    <circle cx="101" cy="80" r="2.6" fill="#FFFFFF"/>
+    <circle cx="107" cy="80" r="2.6" fill="#FFFFFF"/>
+  </g>
+  <!-- pellets -->
+  <circle cx="24" cy="30" r="4" fill="#FFB897"/>
+  <circle cx="44" cy="98" r="4" fill="#FFB897"/>
+  <circle cx="26" cy="92" r="4" fill="#FFB897"/>
+</svg>
