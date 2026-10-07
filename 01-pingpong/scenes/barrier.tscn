@@ -1,0 +1,10 @@
+[gd_scene load_steps=2 format=3]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_barrier"]
+size = Vector2(4, 4)
+
+[node name="Barrier" type="Area2D"]
+monitoring = false
+
+[node name="Collision" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_barrier")

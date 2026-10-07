@@ -16,6 +16,18 @@ const BACKGROUND_WEIGHTS := {
 	"space_2": 0.04,
 }
 
+@onready var _background: Control = $Background
+@onready var _playfield: Node2D = $Playfield
+@onready var _hud: InvaderHud = $Hud
+@onready var _overlay: Control = $Overlay
+@onready var _overlay_message: Label = %Message
+@onready var _player: InvaderPlayer = %Player
+@onready var _grid: EnemyGrid = %EnemyGrid
+@onready var _shield_root: Node2D = %Shields
+@onready var _bullet_root: Node2D = %Bullets
+@onready var _ufo_slot: Node2D = %UfoSlot
+@onready var _audio: SpaceAudio = %Audio
+
 var _cfg := {}
 var _sprites: SpaceSprites
 var _factor := 4.0
@@ -24,14 +36,6 @@ var _score := 0
 var _lives := 3
 var _level := 1
 
-var _background: Control
-var _playfield: Node2D
-var _hud: InvaderHud
-var _overlay: Control
-var _overlay_message: Label
-
-var _player: InvaderPlayer
-var _grid: EnemyGrid
 var _player_bullet: InvaderBullet = null
 var _enemy_bullets: Array[InvaderBullet] = []
 var _ufo: InvaderUfo = null
@@ -39,7 +43,6 @@ var _ufo_countdown := 0.0
 var _shields: Array[InvaderShield] = []
 var _wave_pending := false
 var _fire_lock := 0.0
-var _audio: SpaceAudio
 
 
 func _ready() -> void:
@@ -51,7 +54,6 @@ func _ready() -> void:
 	_build_side_masks()
 	_build_hud()
 	_build_overlay()
-	_build_audio()
 	await get_tree().process_frame
 	_enter_title()
 
@@ -75,17 +77,10 @@ func _process(delta: float) -> void:
 
 # --- build ------------------------------------------------------------------
 
+## The background frame (base colour + tile holder) is scene structure; only the
+## star tiles themselves are data, so they are filled in here.
 func _build_background() -> void:
-	var base := ColorRect.new()
-	base.color = Color("101A4A")
-	base.size = SpaceField.SIZE
-	base.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(base)
-
-	_background = Control.new()
-	_background.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_background)
-
+	var holder: Control = %Tiles
 	var tile := _sprites.content_size("space_3", 0, _factor)
 	var cols := int(ceil(SpaceField.SIZE.x / tile.x))
 	var rows := int(ceil(SpaceField.SIZE.y / tile.y))
@@ -94,7 +89,7 @@ func _build_background() -> void:
 			var sprite := _sprites.make_sprite(_pick_background_tag(), 0, _factor)
 			sprite.position = Vector2((float(col) + 0.5) * tile.x, (float(row) + 0.5) * tile.y)
 			sprite.rotation = deg_to_rad(90.0 * float(randi() % 4))
-			_background.add_child(sprite)
+			holder.add_child(sprite)
 
 
 func _pick_background_tag() -> String:
@@ -132,23 +127,17 @@ func _build_side_masks() -> void:
 		add_child(mask)
 
 
+## Player and grid are scene nodes now; this only parameterises and wires them.
 func _build_playfield() -> void:
-	_playfield = Node2D.new()
-	add_child(_playfield)
-
-	_player = InvaderPlayer.new()
 	_player.setup(_cfg.player.speed, _sprites, _factor)
 	_player.position = Vector2(SpaceField.SIZE.x * 0.5, SpaceField.SIZE.y - _cfg.player.bottom_margin)
 	_player.hit_taken.connect(_on_player_hit)
-	_playfield.add_child(_player)
 
-	_grid = EnemyGrid.new()
 	_grid.setup(_cfg, _sprites, _factor, _cfg.score)
 	_grid.enemy_killed.connect(_on_enemy_killed)
 	_grid.fire_requested.connect(_on_enemy_fire)
 	_grid.stepped_down.connect(_crush_shields)
 	_grid.ticked.connect(_on_grid_ticked)
-	_playfield.add_child(_grid)
 
 	_build_shields()
 
@@ -163,50 +152,29 @@ func _build_shields() -> void:
 	for i in count:
 		var shield := InvaderShield.new()
 		shield.position = Vector2(play.position.x + gap * float(i + 1) + shield_w * float(i), y)
+		# Add before building: the tiles it creates rely on @onready children,
+		# which only resolve for nodes that are already in the tree.
+		_shield_root.add_child(shield)
 		shield.build(_cfg.shield.tile_size, _factor, _cfg.shield.tile_hp, _sprites)
-		_playfield.add_child(shield)
 		_shields.append(shield)
 
 
-func _build_audio() -> void:
-	_audio = SpaceAudio.new()
-	add_child(_audio)
-
-
 func _build_hud() -> void:
-	_hud = InvaderHud.new()
-	_hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_hud)
 	_hud.build(_cfg, _sprites, _factor)
 
 
+## Only the per-enemy score rows are dynamic; the frame around them is scene.
 func _build_overlay() -> void:
-	_overlay = Control.new()
-	_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_overlay)
-
-	var box := VBoxContainer.new()
-	box.alignment = BoxContainer.ALIGNMENT_CENTER
-	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	box.add_theme_constant_override("separation", 22)
-	_overlay.add_child(box)
-
-	var title := Label.new()
+	var title: Label = %Title
 	PixelFont.apply(title, 40)
 	title.text = "SPACE INVADERS"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(title)
 
-	box.add_child(_make_score_row("squid", _cfg.score.squid))
-	box.add_child(_make_score_row("claude", _cfg.score.claude))
-	box.add_child(_make_score_row("jelly", _cfg.score.jelly))
+	var rows: VBoxContainer = %Rows
+	rows.add_child(_make_score_row("squid", _cfg.score.squid))
+	rows.add_child(_make_score_row("claude", _cfg.score.claude))
+	rows.add_child(_make_score_row("jelly", _cfg.score.jelly))
 
-	_overlay_message = Label.new()
 	PixelFont.apply(_overlay_message, 16)
-	_overlay_message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(_overlay_message)
 
 
 func _make_score_row(tag: String, value: int) -> HBoxContainer:

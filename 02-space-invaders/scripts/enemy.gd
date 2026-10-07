@@ -13,8 +13,10 @@ signal killed(score: int, at: Vector2)
 var kind := KIND_JELLY
 var score := 10
 
+@onready var _collision: CollisionShape2D = $Collision
+@onready var _sprite: Sprite2D = $Sprite
+
 var _frames: Array[AtlasTexture] = []
-var _sprite: Sprite2D
 var _dead := false
 
 
@@ -32,12 +34,9 @@ func setup(kind_name: String, score_value: int, sprites: SpaceSprites, factor: f
 
 	var shape := RectangleShape2D.new()
 	shape.size = sprites.content_size(kind, 0, factor)
-	var collision := CollisionShape2D.new()
-	collision.shape = shape
-	add_child(collision)
-
-	_sprite = sprites.make_sprite(kind, 0, factor)
-	add_child(_sprite)
+	_collision.shape = shape
+	_sprite.texture = _frames[0] if not _frames.is_empty() else null
+	_sprite.scale = Vector2(factor, factor)
 
 
 func set_frame(index: int) -> void:

@@ -6,6 +6,9 @@ extends Area2D
 signal escaped
 signal destroyed(score: int, at: Vector2)
 
+@onready var _collision: CollisionShape2D = $Collision
+@onready var _sprite: Sprite2D = $Sprite
+
 var _speed := 160.0
 var _dir := 1.0
 var _score := 50
@@ -23,11 +26,9 @@ func setup(speed: float, score: int, from_left: bool, sprites: SpaceSprites, fac
 
 	var shape := RectangleShape2D.new()
 	shape.size = sprites.content_size("UFO", 0, factor)
-	var collision := CollisionShape2D.new()
-	collision.shape = shape
-	add_child(collision)
-
-	add_child(sprites.make_sprite("UFO", 0, factor))
+	_collision.shape = shape
+	_sprite.texture = sprites.make_atlas("UFO", 0)
+	_sprite.scale = Vector2(factor, factor)
 
 
 func _process(delta: float) -> void:

@@ -7,12 +7,14 @@ const KIND_LAZER := "lazer"
 const KIND_ENERGY := "plaz"
 const KIND_DART := "drat"
 
+@onready var _collision: CollisionShape2D = $Collision
+@onready var _sprite: Sprite2D = $Sprite
+
 var is_player := false
 
 var _speed := 900.0
 var _dir := -1.0
 var _frames: Array[AtlasTexture] = []
-var _sprite: Sprite2D
 var _index := 0
 var _anim_t := 0.0
 var _anim_fps := 8.0
@@ -41,12 +43,9 @@ func setup(tag: String, speed: float, travel_up: bool, sprites: SpaceSprites, fa
 	body.y = maxf(body.y, min_size.y)
 	var shape := RectangleShape2D.new()
 	shape.size = body
-	var collision := CollisionShape2D.new()
-	collision.shape = shape
-	add_child(collision)
-
-	_sprite = sprites.make_sprite(tag, 0, factor)
-	add_child(_sprite)
+	_collision.shape = shape
+	_sprite.texture = _frames[0] if not _frames.is_empty() else null
+	_sprite.scale = Vector2(factor, factor)
 
 	area_entered.connect(_on_area_entered)
 

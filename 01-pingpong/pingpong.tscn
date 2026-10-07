@@ -1,6 +1,10 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://01-pingpong/scripts/game.gd" id="1_game"]
+[ext_resource type="Script" path="res://01-pingpong/scripts/ai.gd" id="2_ai"]
+[ext_resource type="PackedScene" path="res://01-pingpong/scenes/paddle.tscn" id="3_paddle"]
+[ext_resource type="PackedScene" path="res://01-pingpong/scenes/ball.tscn" id="4_ball"]
+[ext_resource type="PackedScene" path="res://01-pingpong/scenes/barrier.tscn" id="5_barrier"]
 
 [node name="PingPong" type="Control"]
 anchors_preset = 15
@@ -9,3 +13,50 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_game")
+
+[node name="Background" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Playfield" type="Node2D" parent="."]
+
+[node name="PaddleLeft" parent="Playfield" instance=ExtResource("3_paddle")]
+unique_name_in_owner = true
+
+[node name="PaddleRight" parent="Playfield" instance=ExtResource("3_paddle")]
+unique_name_in_owner = true
+
+[node name="WallTop" parent="Playfield" instance=ExtResource("5_barrier")]
+unique_name_in_owner = true
+
+[node name="WallBottom" parent="Playfield" instance=ExtResource("5_barrier")]
+unique_name_in_owner = true
+
+[node name="ZoneLeft" parent="Playfield" instance=ExtResource("5_barrier")]
+unique_name_in_owner = true
+
+[node name="ZoneRight" parent="Playfield" instance=ExtResource("5_barrier")]
+unique_name_in_owner = true
+
+[node name="Ball" parent="Playfield" instance=ExtResource("4_ball")]
+unique_name_in_owner = true
+
+[node name="CenterLine" type="ColorRect" parent="."]
+mouse_filter = 2
+
+[node name="Scoreboard" type="Label" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Ai" type="Node" parent="."]
+script = ExtResource("2_ai")

@@ -3,29 +3,28 @@ extends Area2D
 ## One paddle: an Area2D that is visible via a ColorRect child and moves
 ## vertically toward _target (-1/0/+1) at max_speed, clamped to field bounds.
 
+@onready var _collision: CollisionShape2D = $Collision
+@onready var _visual: ColorRect = $Visual
+
 var side := ""
 var half_height := 60.0
 var _cfg := {}
 var _target := 0
 var _min_y := 0.0
 var _max_y := 0.0
-var _collision: CollisionShape2D
-var _visual: ColorRect
-
-
-func setup(paddle_side: String, cfg: Dictionary) -> void:
-	side = paddle_side
-	_cfg = cfg
-	half_height = cfg.height * 0.5
 
 
 func _ready() -> void:
 	monitoring = false
 	monitorable = true
-	_collision = CollisionShape2D.new()
-	add_child(_collision)
-	_visual = ColorRect.new()
-	add_child(_visual)
+
+
+## Geometry is built here rather than in _ready: the scene instance enters the
+## tree before Game has had a chance to hand over the config.
+func setup(paddle_side: String, cfg: Dictionary) -> void:
+	side = paddle_side
+	_cfg = cfg
+	half_height = cfg.height * 0.5
 	_apply_geometry()
 
 

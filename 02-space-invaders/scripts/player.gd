@@ -5,10 +5,12 @@ extends Area2D
 
 signal hit_taken
 
+@onready var _collision: CollisionShape2D = $Collision
+@onready var _sprite: Sprite2D = $Sprite
+
 var _speed := 320.0
 var _sprites: SpaceSprites
 var _factor := 4.0
-var _sprite: Sprite2D
 var _dir := 0.0
 var _invuln := 0.0
 var _blink_t := 0.0
@@ -26,12 +28,9 @@ func setup(speed: float, sprites: SpaceSprites, factor: float) -> void:
 
 	var shape := RectangleShape2D.new()
 	shape.size = sprites.content_size("player", 0, factor)
-	var collision := CollisionShape2D.new()
-	collision.shape = shape
-	add_child(collision)
-
-	_sprite = sprites.make_sprite("player", 0, factor)
-	add_child(_sprite)
+	_collision.shape = shape
+	_sprite.texture = sprites.make_atlas("player", 0)
+	_sprite.scale = Vector2(factor, factor)
 
 
 func _process(delta: float) -> void:

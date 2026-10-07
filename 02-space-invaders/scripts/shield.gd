@@ -10,6 +10,8 @@ extends Node2D
 ##   S . . . . . . S
 ## Left-side triangles are mirrored horizontally.
 
+const TILE_SCENE := preload("res://02-space-invaders/scenes/fort_tile.tscn")
+
 const LAYOUT: Array[String] = [
 	"TSST",
 	"SVVS",
@@ -36,7 +38,10 @@ func build(tile_size: float, factor: float, hp: int, sprites: SpaceSprites) -> v
 			if symbol == SYMBOL_EMPTY:
 				continue
 			var is_left := col < width / 2
-			var tile := FortTile.new()
+			var tile: FortTile = TILE_SCENE.instantiate()
+			# Add first: setup() drives @onready children, which only resolve
+			# once the instance is in the tree.
+			add_child(tile)
 			var tag := FortTile.TAG_SQUARE if symbol == SYMBOL_SQUARE else FortTile.TAG_TRIANGLE
 			tile.setup(tag, hp, sprites, factor)
 			if symbol == SYMBOL_CROWN:
@@ -50,7 +55,6 @@ func build(tile_size: float, factor: float, hp: int, sprites: SpaceSprites) -> v
 			tile.position = Vector2(
 					(float(col) + 0.5) * tile_size * factor,
 					(float(row) + 0.5) * tile_size * factor)
-			add_child(tile)
 			_tiles.append(tile)
 
 

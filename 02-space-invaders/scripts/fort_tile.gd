@@ -7,12 +7,14 @@ extends Area2D
 const TAG_SQUARE := "frot_sqr"
 const TAG_TRIANGLE := "frot_tri"
 
+@onready var _collision: CollisionShape2D = $Collision
+@onready var _sprite: Sprite2D = $Sprite
+
 var _sprites: SpaceSprites
 var _tag := TAG_SQUARE
 var _factor := 4.0
 var _hp := 4
 var _max_hp := 4
-var _sprite: Sprite2D
 var _body_size := Vector2.ZERO
 
 
@@ -31,14 +33,8 @@ func setup(tag: String, hp: int, sprites: SpaceSprites, factor: float) -> void:
 	_body_size = sprites.content_size(tag, 0, factor)
 	var shape := RectangleShape2D.new()
 	shape.size = _body_size
-	var collision := CollisionShape2D.new()
-	collision.shape = shape
-	add_child(collision)
-
-	_sprite = Sprite2D.new()
-	_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_collision.shape = shape
 	_sprite.scale = Vector2(factor, factor)
-	add_child(_sprite)
 	_refresh()
 
 

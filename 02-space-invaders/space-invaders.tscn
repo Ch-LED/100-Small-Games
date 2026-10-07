@@ -1,6 +1,10 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://02-space-invaders/scripts/game.gd" id="1_game"]
+[ext_resource type="Script" path="res://02-space-invaders/scripts/enemy_grid.gd" id="2_grid"]
+[ext_resource type="PackedScene" path="res://02-space-invaders/scenes/player.tscn" id="3_player"]
+[ext_resource type="Script" path="res://02-space-invaders/scripts/hud.gd" id="4_hud"]
+[ext_resource type="Script" path="res://02-space-invaders/scripts/space_audio.gd" id="5_audio"]
 
 [node name="SpaceInvaders" type="Control"]
 anchors_preset = 15
@@ -9,3 +13,114 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_game")
+
+[node name="Background" type="Control" parent="."]
+unique_name_in_owner = true
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Base" type="ColorRect" parent="Background"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.0627451, 0.101961, 0.290196, 1)
+
+[node name="Tiles" type="Control" parent="Background"]
+unique_name_in_owner = true
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Playfield" type="Node2D" parent="."]
+
+[node name="Player" parent="Playfield" instance=ExtResource("3_player")]
+unique_name_in_owner = true
+
+[node name="EnemyGrid" type="Node2D" parent="Playfield"]
+unique_name_in_owner = true
+script = ExtResource("2_grid")
+
+[node name="Shields" type="Node2D" parent="Playfield"]
+unique_name_in_owner = true
+
+[node name="Bullets" type="Node2D" parent="Playfield"]
+unique_name_in_owner = true
+
+[node name="UfoSlot" type="Node2D" parent="Playfield"]
+unique_name_in_owner = true
+
+[node name="Hud" type="Control" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("4_hud")
+
+[node name="ScoreLabel" type="Label" parent="Hud"]
+unique_name_in_owner = true
+offset_top = 16.0
+offset_left = 16.0
+mouse_filter = 2
+
+[node name="LivesBox" type="HBoxContainer" parent="Hud"]
+unique_name_in_owner = true
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -160.0
+offset_top = 16.0
+offset_right = -16.0
+grow_horizontal = 0
+alignment = 2
+mouse_filter = 2
+
+[node name="Overlay" type="Control" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Box" type="VBoxContainer" parent="Overlay"]
+unique_name_in_owner = true
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+alignment = 1
+theme_override_constants/separation = 22
+
+[node name="Title" type="Label" parent="Overlay/Box"]
+unique_name_in_owner = true
+mouse_filter = 2
+horizontal_alignment = 1
+
+[node name="Rows" type="VBoxContainer" parent="Overlay/Box"]
+unique_name_in_owner = true
+mouse_filter = 2
+alignment = 1
+theme_override_constants/separation = 6
+
+[node name="Message" type="Label" parent="Overlay/Box"]
+unique_name_in_owner = true
+mouse_filter = 2
+horizontal_alignment = 1
+
+[node name="Audio" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("5_audio")

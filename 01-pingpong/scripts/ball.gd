@@ -13,6 +13,8 @@ const MAX_DIR_Y := 0.97
 @onready var _wall_bottom: Area2D = $"../WallBottom"
 @onready var _zone_left: Area2D = $"../ZoneLeft"
 @onready var _zone_right: Area2D = $"../ZoneRight"
+@onready var _collision: CollisionShape2D = $Collision
+@onready var _visual: ColorRect = $Visual
 
 var _cfg := {}
 var _vx := 0.0
@@ -20,24 +22,20 @@ var _vy := 0.0
 var _speed := 520.0
 var _radius := 11.0
 var _active := false
-var _collision: CollisionShape2D
-var _visual: ColorRect
-
-
-func setup(cfg: Dictionary) -> void:
-	_cfg = cfg
-	_radius = cfg.radius
-	_speed = cfg.speed
 
 
 func _ready() -> void:
 	monitoring = true
 	monitorable = false
 	area_entered.connect(_on_area_entered)
-	_collision = CollisionShape2D.new()
-	add_child(_collision)
-	_visual = ColorRect.new()
-	add_child(_visual)
+
+
+## Geometry is built here rather than in _ready: the scene instance enters the
+## tree before Game has had a chance to hand over the config.
+func setup(cfg: Dictionary) -> void:
+	_cfg = cfg
+	_radius = cfg.radius
+	_speed = cfg.speed
 	_apply_geometry()
 
 

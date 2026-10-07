@@ -1,30 +1,42 @@
 class_name PongGame
 extends Control
-## Pong controller: builds the static field (background, center line,
-## scoreboard) and the Area2D entities from pingpong.cfg, then runs the match.
+## Pong controller. Structure lives in pingpong.tscn (see CONSTITUTION 5.5);
+## this script only loads the config, positions the field and runs the match.
 
 const ZONE_DEPTH := 40.0
 const WALL_THICKNESS := 4.0
 
+@onready var _background: ColorRect = $Background
+@onready var _paddle_left: PongPaddle = %PaddleLeft
+@onready var _paddle_right: PongPaddle = %PaddleRight
+@onready var _wall_top: Area2D = %WallTop
+@onready var _wall_bottom: Area2D = %WallBottom
+@onready var _zone_left: Area2D = %ZoneLeft
+@onready var _zone_right: Area2D = %ZoneRight
+@onready var _ball: PongBall = %Ball
+@onready var _line: ColorRect = $CenterLine
+@onready var _scoreboard: Label = $Scoreboard
+@onready var _ai: PongAi = $Ai
+
 var _cfg := {}
-var _ball: PongBall
-var _paddle_left: PongPaddle
-var _paddle_right: PongPaddle
-var _ai: PongAi
-var _line: ColorRect
-var _scoreboard: Label
 var _score := 0
 var _serve_wait := 0.0
 var _waiting_for_serve := false
-var _walls: Array = []
-var _zones: Array = []
 
 
 func _ready() -> void:
 	_cfg = PongSettings.load_all()
-	_build_field()
-	_build_entities()
-	_build_scoreboard()
+	_background.color = _cfg.field.bg_color
+
+	_paddle_left.setup("left", _cfg.paddle)
+	_paddle_right.setup("right", _cfg.paddle)
+	_ball.setup(_cfg.ball)
+	_ball.scored.connect(_on_scored)
+	_ai.setup(_ball, _paddle_left, _cfg.ai)
+
+	_scoreboard.add_theme_font_size_override("font_size", int(_cfg.scoreboard.font_size))
+	_scoreboard.add_theme_color_override("font_color", Color(1, 1, 1, _cfg.scoreboard.alpha))
+
 	resized.connect(_layout)
 	await get_tree().process_frame
 	_layout()
@@ -32,11 +44,12 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	if _waiting_for_serve:
-		_serve_wait -= delta
-		if _serve_wait <= 0.0:
-			_waiting_for_serve = false
-			_ball.launch_random()
+	if not _waiting_for_serve:
+		return
+	_serve_wait -= delta
+	if _serve_wait <= 0.0:
+		_waiting_for_serve = false
+		_ball.launch_random()
 
 
 func _physics_process(_delta: float) -> void:
@@ -59,72 +72,6 @@ func _action(action: String) -> bool:
 	return InputMap.has_action(action) and Input.is_action_pressed(action)
 
 
-func _build_field() -> void:
-	var background := ColorRect.new()
-	background.color = _cfg.field.bg_color
-	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(background)
-
-	_line = ColorRect.new()
-	_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_line)
-
-
-## Siblings are named and created before the ball so that the ball's @onready
-## references (see ball.gd) resolve when it enters the tree.
-func _build_entities() -> void:
-	_paddle_left = PongPaddle.new()
-	_paddle_left.setup("left", _cfg.paddle)
-	_paddle_left.name = "PaddleLeft"
-	add_child(_paddle_left)
-
-	_paddle_right = PongPaddle.new()
-	_paddle_right.setup("right", _cfg.paddle)
-	_paddle_right.name = "PaddleRight"
-	add_child(_paddle_right)
-
-	_walls.append(_make_area_strip("WallTop"))
-	_walls.append(_make_area_strip("WallBottom"))
-	_zones.append(_make_area_strip("ZoneLeft"))
-	_zones.append(_make_area_strip("ZoneRight"))
-
-	_ball = PongBall.new()
-	_ball.setup(_cfg.ball)
-	_ball.scored.connect(_on_scored)
-	add_child(_ball)
-
-	_ai = PongAi.new()
-	_ai.setup(_ball, _paddle_left, _cfg.ai)
-	add_child(_ai)
-
-
-## A thin rectangle Area2D that the ball senses. Returns [area, shape].
-func _make_area_strip(node_name: String) -> Array:
-	var area := Area2D.new()
-	area.name = node_name
-	area.monitoring = false
-	area.monitorable = true
-	var shape := RectangleShape2D.new()
-	var collision := CollisionShape2D.new()
-	collision.shape = shape
-	area.add_child(collision)
-	add_child(area)
-	return [area, shape]
-
-
-func _build_scoreboard() -> void:
-	_scoreboard = Label.new()
-	_scoreboard.text = "0"
-	_scoreboard.add_theme_font_size_override("font_size", int(_cfg.scoreboard.font_size))
-	_scoreboard.add_theme_color_override("font_color", Color(1, 1, 1, _cfg.scoreboard.alpha))
-	_scoreboard.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_scoreboard.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_scoreboard.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_scoreboard.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(_scoreboard)
-
-
 func _layout() -> void:
 	var field := size
 	if field.x <= 0.0 or field.y <= 0.0:
@@ -145,20 +92,17 @@ func _layout() -> void:
 	_paddle_left.refresh_bounds(ph * 0.5, field.y - ph * 0.5)
 	_paddle_right.refresh_bounds(ph * 0.5, field.y - ph * 0.5)
 
-	_layout_strips(field)
+	_set_strip(_wall_top, Vector2(field.x, WALL_THICKNESS), Vector2(field.x * 0.5, -WALL_THICKNESS * 0.5))
+	_set_strip(_wall_bottom, Vector2(field.x, WALL_THICKNESS), Vector2(field.x * 0.5, field.y + WALL_THICKNESS * 0.5))
+	_set_strip(_zone_left, Vector2(ZONE_DEPTH, field.y), Vector2(-ZONE_DEPTH * 0.5, field.y * 0.5))
+	_set_strip(_zone_right, Vector2(ZONE_DEPTH, field.y), Vector2(field.x + ZONE_DEPTH * 0.5, field.y * 0.5))
 
 
-func _layout_strips(field: Vector2) -> void:
-	_set_strip(_walls[0], Vector2(field.x, WALL_THICKNESS), Vector2(field.x * 0.5, -WALL_THICKNESS * 0.5))
-	_set_strip(_walls[1], Vector2(field.x, WALL_THICKNESS), Vector2(field.x * 0.5, field.y + WALL_THICKNESS * 0.5))
-	_set_strip(_zones[0], Vector2(ZONE_DEPTH, field.y), Vector2(-ZONE_DEPTH * 0.5, field.y * 0.5))
-	_set_strip(_zones[1], Vector2(ZONE_DEPTH, field.y), Vector2(field.x + ZONE_DEPTH * 0.5, field.y * 0.5))
-
-
-func _set_strip(strip: Array, shape_size: Vector2, center: Vector2) -> void:
-	var area = strip[0]
-	var shape = strip[1]
+## The barriers are plain Area2Ds; only their shape and centre are data-driven.
+func _set_strip(area: Area2D, shape_size: Vector2, center: Vector2) -> void:
 	area.position = center
+	var collision := area.get_node("Collision") as CollisionShape2D
+	var shape := collision.shape as RectangleShape2D
 	shape.size = shape_size
 
 
