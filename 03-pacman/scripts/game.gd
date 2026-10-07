@@ -174,7 +174,7 @@ func _fright_duration() -> float:
 # --- per-frame --------------------------------------------------------------
 
 func _process(delta: float) -> void:
-	if Input.is_action_just_pressed("debug_ghost_ai"):
+	if Input.is_action_just_pressed("debug_toggle"):
 		_debug.enabled = not _debug.enabled
 	if Input.is_action_just_pressed("ui_cancel"):
 		GameRouter.back_to_hub()

@@ -60,3 +60,10 @@ func ease_toward(target_y: float, t: float) -> void:
 func refresh_bounds(min_y: float, max_y: float) -> void:
 	_min_y = min_y
 	_max_y = max_y
+
+
+## The paddle as a world-space box; the ball sweeps against this instead of
+## relying on area signals (see ball.gd).
+func global_rect() -> Rect2:
+	var box := (_collision.shape as RectangleShape2D).size
+	return Rect2(global_position - box * 0.5, box)

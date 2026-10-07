@@ -7,6 +7,9 @@ extends Control
 enum State { TITLE, PLAYING, DYING, OVER }
 
 const INVADER_LINE_MARGIN := 8.0
+
+const BULLET_SCENE := preload("res://02-space-invaders/scenes/bullet.tscn")
+const UFO_SCENE := preload("res://02-space-invaders/scenes/ufo.tscn")
 ## Background tile mix. space_4 is the flat fill and should dominate; the star
 ## tiles are accents. Weights are renormalised over whichever tags exist.
 const BACKGROUND_WEIGHTS := {
@@ -43,6 +46,8 @@ var _ufo_countdown := 0.0
 var _shields: Array[InvaderShield] = []
 var _wave_pending := false
 var _fire_lock := 0.0
+## Debug cheat (P): lifts the single-bullet rule so fire is unrestricted.
+var _fire_cheat := false
 
 
 func _ready() -> void:
@@ -62,6 +67,8 @@ func _process(delta: float) -> void:
 	if Input.is_action_just_pressed("ui_cancel"):
 		GameRouter.back_to_hub()
 		return
+	if Input.is_action_just_pressed("debug_toggle"):
+		_fire_cheat = not _fire_cheat
 	match _state:
 		State.TITLE:
 			if Input.is_action_just_pressed("fire"):
@@ -260,32 +267,35 @@ func _read_move_axis() -> float:
 
 
 func _try_player_fire() -> void:
-	if is_instance_valid(_player_bullet):
+	if not _fire_cheat and is_instance_valid(_player_bullet):
 		return
-	var bullet := InvaderBullet.new()
+	var bullet: InvaderBullet = BULLET_SCENE.instantiate()
+	bullet.position = _player.position + Vector2(0.0, -_sprites.content_size("player", 0, _factor).y * 0.5)
+	bullet.tree_exited.connect(_on_player_bullet_exited.bind(bullet))
+	# Add before setup: setup() drives @onready children, which only resolve
+	# once the instance is in the tree.
+	_bullet_root.add_child(bullet)
 	bullet.setup(InvaderBullet.KIND_LAZER, _cfg.player.bullet_speed, true, _sprites, _factor,
 			_bullet_min_size())
-	bullet.position = _player.position + Vector2(0.0, -_sprites.content_size("player", 0, _factor).y * 0.5)
-	bullet.tree_exited.connect(_on_player_bullet_exited)
-	_playfield.add_child(bullet)
 	_player_bullet = bullet
 	_audio.play_shoot()
 
 
 # --- combat -----------------------------------------------------------------
 
-func _on_player_bullet_exited() -> void:
-	_player_bullet = null
+func _on_player_bullet_exited(bullet: InvaderBullet) -> void:
+	if _player_bullet == bullet:
+		_player_bullet = null
 
 
 func _on_enemy_fire(at: Vector2, bullet_tag: String) -> void:
 	var fire: Dictionary = _cfg.enemy_fire
 	var speed: float = fire.energy_bullet_speed if bullet_tag == InvaderBullet.KIND_ENERGY else fire.dart_bullet_speed
-	var bullet := InvaderBullet.new()
-	bullet.setup(bullet_tag, speed, false, _sprites, _factor, _bullet_min_size())
+	var bullet: InvaderBullet = BULLET_SCENE.instantiate()
 	bullet.position = at
 	bullet.tree_exited.connect(_on_enemy_bullet_exited.bind(bullet))
-	_playfield.add_child(bullet)
+	_bullet_root.add_child(bullet)
+	bullet.setup(bullet_tag, speed, false, _sprites, _factor, _bullet_min_size())
 	_enemy_bullets.append(bullet)
 
 
@@ -423,14 +433,15 @@ func _tick_ufo(delta: float) -> void:
 
 func _spawn_ufo() -> void:
 	var from_left := randf() < 0.5
-	_ufo = InvaderUfo.new()
-	_ufo.setup(_cfg.ufo.speed, _roll_ufo_score(), from_left, _sprites, _factor)
+	var ufo: InvaderUfo = UFO_SCENE.instantiate()
 	var play := SpaceField.PLAY_RECT
-	_ufo.position = Vector2(
+	ufo.position = Vector2(
 			play.position.x - 32.0 if from_left else play.end.x + 32.0, _cfg.ufo.y)
-	_ufo.escaped.connect(_clear_ufo)
-	_ufo.destroyed.connect(_on_ufo_destroyed)
-	_playfield.add_child(_ufo)
+	ufo.escaped.connect(_clear_ufo)
+	ufo.destroyed.connect(_on_ufo_destroyed)
+	_ufo_slot.add_child(ufo)
+	ufo.setup(_cfg.ufo.speed, _roll_ufo_score(), from_left, _sprites, _factor)
+	_ufo = ufo
 	_audio.play_ufo_enter()
 
 
@@ -463,7 +474,9 @@ func _clear_enemy_bullets() -> void:
 
 func _reset_transient_entities() -> void:
 	_player_bullet = null
-	_clear_enemy_bullets()
+	_enemy_bullets.clear()
+	for child in _bullet_root.get_children():
+		child.queue_free()
 	if is_instance_valid(_ufo):
 		_ufo.queue_free()
 	_ufo = null

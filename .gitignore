@@ -2,6 +2,11 @@
 .godot/
 /android/
 
+# Local export output (build artifacts, never versioned)
+*.exe
+*.pck
+*.console.exe
+
 # Obsidian: local layout files stay local; core config is committed
 .obsidian/workspace.json
 .obsidian/workspace-mobile.json

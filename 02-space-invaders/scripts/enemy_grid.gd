@@ -12,6 +12,8 @@ signal ticked(count: int)
 ## be crushed.
 signal stepped_down
 
+const ENEMY_SCENE := preload("res://02-space-invaders/scenes/enemy.tscn")
+
 const ROW_KINDS: Array[String] = [
 	InvaderEnemy.KIND_SQUID,
 	InvaderEnemy.KIND_CLAUDE,
@@ -33,6 +35,8 @@ var _level := 1
 var _initial_count := 1
 var _cell := Vector2.ZERO
 var _elapsed := 0.0
+## Progress the level opens at, before time/attrition are added on top.
+var _open_progress := 0.0
 
 
 func setup(cfg: Dictionary, sprites: SpaceSprites, factor: float, score_table: Dictionary) -> void:
@@ -56,7 +60,8 @@ func spawn(level: int) -> void:
 	var cols: int = grid.cols
 	var step_x: float = _cell.x + grid.col_gap
 	var step_y: float = _cell.y + grid.row_gap
-	var top: float = grid.top_margin + float(level - 1) * _cfg.tick.level_step_y
+	var top: float = _spawn_top(level, step_y)
+	_open_progress = _level_open_progress(top, grid)
 	var formation_w: float = float(cols - 1) * step_x + _cell.x
 	var origin_x: float = SpaceField.PLAY_RECT.position.x \
 			+ (SpaceField.PLAY_RECT.size.x - formation_w) * 0.5 + _cell.x * 0.5
@@ -64,12 +69,14 @@ func spawn(level: int) -> void:
 	for row in ROW_KINDS.size():
 		var kind := ROW_KINDS[row]
 		for col in cols:
-			var enemy := InvaderEnemy.new()
-			enemy.setup(kind, int(_score_table.get(kind, 10)), _sprites, _factor)
+			var enemy: InvaderEnemy = ENEMY_SCENE.instantiate()
 			enemy.position = Vector2(origin_x + col * step_x, top + row * step_y + _cell.y * 0.5)
 			enemy.killed.connect(_on_enemy_killed.bind(enemy))
 			enemy.tree_exiting.connect(_on_enemy_exiting.bind(enemy))
+			# Add before setup: setup() drives @onready children, which only
+			# resolve once the instance is in the tree.
 			add_child(enemy)
+			enemy.setup(kind, int(_score_table.get(kind, 10)), _sprites, _factor)
 			_enemies.append(enemy)
 
 	_initial_count = maxi(1, _enemies.size())
@@ -86,6 +93,31 @@ func _physics_process(delta: float) -> void:
 	_step()
 
 
+## Each cleared level drops the formation `level_shift_rows` lower, but never
+## closer than `level_clear_rows` rows to the shield line.
+func _spawn_top(level: int, step_y: float) -> float:
+	var grid: Dictionary = _cfg.enemy_grid
+	var tick: Dictionary = _cfg.tick
+	var rows := ROW_KINDS.size()
+	var shield_top: float = SpaceField.SIZE.y - float(_cfg.shield.bottom_margin)
+	var lowest_allowed: float = shield_top - float(rows - 1) * step_y - _cell.y \
+			- float(tick.level_clear_rows) * step_y
+	var desired: float = float(grid.top_margin) \
+			+ float(level - 1) * float(tick.level_shift_rows) * step_y
+	return minf(desired, lowest_allowed)
+
+
+## Descent spans from the level-1 spawn row down to the shield line. A level
+## that starts lower therefore opens further along its speed curve; pushing the
+## curve back by `level_open_delay` keeps that opening calmer than the raw
+## position implies.
+func _level_open_progress(top: float, grid: Dictionary) -> float:
+	var shield_top: float = SpaceField.SIZE.y - float(_cfg.shield.bottom_margin)
+	var span: float = maxf(1.0, shield_top - float(grid.top_margin))
+	var descended: float = top - float(grid.top_margin)
+	return clampf(descended / span - float(_cfg.tick.level_open_delay), 0.0, 1.0)
+
+
 ## Speed-up blends attrition with elapsed time. Attrition is deliberately the
 ## smaller share — see count_share in the cfg for the 30s bound it must respect.
 func tick_period() -> float:
@@ -99,7 +131,7 @@ func tick_period() -> float:
 	var dead := float(_initial_count - _enemies.size())
 	var by_count := clampf(dead / span, 0.0, 1.0)
 	var by_time := clampf(_elapsed / maxf(1.0, tick.time_to_max), 0.0, 1.0)
-	var progress := count_share * by_count + time_share * by_time
+	var progress := clampf(_open_progress + count_share * by_count + time_share * by_time, 0.0, 1.0)
 	var speedup := pow(tick.per_level_speedup, float(_level - 1))
 	return lerpf(slow * speedup, fast * speedup, progress)
 

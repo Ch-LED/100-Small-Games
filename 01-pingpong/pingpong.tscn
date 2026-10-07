@@ -1,10 +1,11 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://01-pingpong/scripts/game.gd" id="1_game"]
 [ext_resource type="Script" path="res://01-pingpong/scripts/ai.gd" id="2_ai"]
 [ext_resource type="PackedScene" path="res://01-pingpong/scenes/paddle.tscn" id="3_paddle"]
 [ext_resource type="PackedScene" path="res://01-pingpong/scenes/ball.tscn" id="4_ball"]
 [ext_resource type="PackedScene" path="res://01-pingpong/scenes/barrier.tscn" id="5_barrier"]
+[ext_resource type="Script" path="res://01-pingpong/scripts/pong_audio.gd" id="6_audio"]
 
 [node name="PingPong" type="Control"]
 anchors_preset = 15
@@ -60,3 +61,6 @@ vertical_alignment = 1
 
 [node name="Ai" type="Node" parent="."]
 script = ExtResource("2_ai")
+
+[node name="Audio" type="Node" parent="."]
+script = ExtResource("6_audio")

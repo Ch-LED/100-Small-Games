@@ -9,14 +9,15 @@ const WALL_THICKNESS := 4.0
 @onready var _background: ColorRect = $Background
 @onready var _paddle_left: PongPaddle = %PaddleLeft
 @onready var _paddle_right: PongPaddle = %PaddleRight
-@onready var _wall_top: Area2D = %WallTop
-@onready var _wall_bottom: Area2D = %WallBottom
-@onready var _zone_left: Area2D = %ZoneLeft
-@onready var _zone_right: Area2D = %ZoneRight
+@onready var _wall_top: PongBarrier = %WallTop
+@onready var _wall_bottom: PongBarrier = %WallBottom
+@onready var _zone_left: PongBarrier = %ZoneLeft
+@onready var _zone_right: PongBarrier = %ZoneRight
 @onready var _ball: PongBall = %Ball
 @onready var _line: ColorRect = $CenterLine
 @onready var _scoreboard: Label = $Scoreboard
 @onready var _ai: PongAi = $Ai
+@onready var _audio: PongAudio = $Audio
 
 var _cfg := {}
 var _score := 0
@@ -32,10 +33,13 @@ func _ready() -> void:
 	_paddle_right.setup("right", _cfg.paddle)
 	_ball.setup(_cfg.ball)
 	_ball.scored.connect(_on_scored)
+	_ball.paddle_hit.connect(_on_paddle_hit)
+	_ball.wall_hit.connect(_audio.play_wall)
 	_ai.setup(_ball, _paddle_left, _cfg.ai)
 
 	_scoreboard.add_theme_font_size_override("font_size", int(_cfg.scoreboard.font_size))
 	_scoreboard.add_theme_color_override("font_color", Color(1, 1, 1, _cfg.scoreboard.alpha))
+	_scoreboard.text = "0"
 
 	resized.connect(_layout)
 	await get_tree().process_frame
@@ -50,6 +54,7 @@ func _process(delta: float) -> void:
 	if _serve_wait <= 0.0:
 		_waiting_for_serve = false
 		_ball.launch_random()
+		_audio.play_serve()
 
 
 func _physics_process(_delta: float) -> void:
@@ -92,18 +97,16 @@ func _layout() -> void:
 	_paddle_left.refresh_bounds(ph * 0.5, field.y - ph * 0.5)
 	_paddle_right.refresh_bounds(ph * 0.5, field.y - ph * 0.5)
 
-	_set_strip(_wall_top, Vector2(field.x, WALL_THICKNESS), Vector2(field.x * 0.5, -WALL_THICKNESS * 0.5))
-	_set_strip(_wall_bottom, Vector2(field.x, WALL_THICKNESS), Vector2(field.x * 0.5, field.y + WALL_THICKNESS * 0.5))
-	_set_strip(_zone_left, Vector2(ZONE_DEPTH, field.y), Vector2(-ZONE_DEPTH * 0.5, field.y * 0.5))
-	_set_strip(_zone_right, Vector2(ZONE_DEPTH, field.y), Vector2(field.x + ZONE_DEPTH * 0.5, field.y * 0.5))
+	var wall_color: Color = _cfg.field.wall_color
+	wall_color.a = _cfg.field.wall_alpha
+	var barriers: Array[PongBarrier] = [_wall_top, _wall_bottom, _zone_left, _zone_right]
+	for barrier in barriers:
+		barrier.set_color(wall_color)
 
-
-## The barriers are plain Area2Ds; only their shape and centre are data-driven.
-func _set_strip(area: Area2D, shape_size: Vector2, center: Vector2) -> void:
-	area.position = center
-	var collision := area.get_node("Collision") as CollisionShape2D
-	var shape := collision.shape as RectangleShape2D
-	shape.size = shape_size
+	_wall_top.set_strip(Vector2(field.x, WALL_THICKNESS), Vector2(field.x * 0.5, -WALL_THICKNESS * 0.5))
+	_wall_bottom.set_strip(Vector2(field.x, WALL_THICKNESS), Vector2(field.x * 0.5, field.y + WALL_THICKNESS * 0.5))
+	_zone_left.set_strip(Vector2(ZONE_DEPTH, field.y), Vector2(-ZONE_DEPTH * 0.5, field.y * 0.5))
+	_zone_right.set_strip(Vector2(ZONE_DEPTH, field.y), Vector2(field.x + ZONE_DEPTH * 0.5, field.y * 0.5))
 
 
 func _begin_serve() -> void:
@@ -115,4 +118,9 @@ func _begin_serve() -> void:
 func _on_scored(side: String) -> void:
 	_score += 1 if side == "left" else -1
 	_scoreboard.text = str(_score)
+	_audio.play_score()
 	_begin_serve()
+
+
+func _on_paddle_hit(speed: float) -> void:
+	_audio.play_paddle(speed / maxf(0.001, float(_cfg.ball.speed)))

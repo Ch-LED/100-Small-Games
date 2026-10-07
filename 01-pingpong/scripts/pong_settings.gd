@@ -12,7 +12,11 @@ static func load_all() -> Dictionary:
 		return {}
 
 	var cfg := {}
-	cfg["field"] = {"bg_color": _color(file, "field", "bg_color", Color(0.89, 0.9, 0.91))}
+	cfg["field"] = {
+		"bg_color": _color(file, "field", "bg_color", Color(0.89, 0.9, 0.91)),
+		"wall_color": _color(file, "field", "wall_color", Color.WHITE),
+		"wall_alpha": file.get_value("field", "wall_alpha", 0.30),
+	}
 
 	cfg["center_line"] = {
 		"color": _color(file, "center_line", "color"),
@@ -31,7 +35,7 @@ static func load_all() -> Dictionary:
 		"serve_max_deg": file.get_value("ball", "serve_max_deg", 32.0),
 		"reflect_curve": file.get_value("ball", "reflect_curve", 0.55),
 		"random_deflect_deg": file.get_value("ball", "random_deflect_deg", 4.0),
-		"min_dir_x": file.get_value("ball", "min_dir_x", 0.30),
+		"min_bounce_angle_from_vertical_deg": file.get_value("ball", "min_bounce_angle_from_vertical_deg", 40.0),
 	}
 
 	cfg["paddle"] = {
