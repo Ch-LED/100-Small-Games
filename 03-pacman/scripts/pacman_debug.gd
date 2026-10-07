@@ -7,7 +7,15 @@ extends Node2D
 ## Strictly read-only — it only reads ghost state, never changes it, so what
 ## you see is exactly what the AI is doing.
 
-var enabled := false
+## Toggling must redraw on the way *out* too, otherwise the last drawn frame
+## stays on the canvas after the overlay is turned off.
+var enabled := false:
+	set(value):
+		if enabled == value:
+			return
+		enabled = value
+		queue_redraw()
+
 var ghosts: Array[PacmanGhost] = []
 
 const LABEL_SIZE := 10
