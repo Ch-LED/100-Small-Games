@@ -261,7 +261,8 @@ func _refresh_debug() -> void:
 
 # --- cheat ------------------------------------------------------------------
 
-## `C` toggles wall pass: the snake comes out the far side instead of dying.
+## The cheat key toggles wall pass: the snake comes out the far side instead of
+## dying.
 ## Reset at the start of every run, so a fresh run always plays by real rules.
 func _toggle_cheat() -> void:
 	_cheat_wrap = not _cheat_wrap

@@ -9,7 +9,15 @@ const ARC_POINTS := 32
 const LINE_WIDTH := 1.5
 const DOT_RADIUS := 2.5
 
-var enabled := false
+## Toggling must redraw on the way *out* too, otherwise the last drawn frame
+## stays on the canvas after the overlay is turned off (drawing commands are
+## cached until a redraw is requested). Same fix as `pacman_debug.gd`.
+var enabled := false:
+	set(value):
+		if enabled == value:
+			return
+		enabled = value
+		queue_redraw()
 
 ## Snapshot pushed by the controller each frame:
 ## [{position: Vector2, radius: float, color: Color, velocity: Vector2}]
