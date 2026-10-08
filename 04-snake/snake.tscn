@@ -1,0 +1,88 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://04-snake/scripts/game.gd" id="1_game"]
+[ext_resource type="Script" path="res://04-snake/scripts/snake_board.gd" id="2_board"]
+[ext_resource type="Script" path="res://04-snake/scripts/snake_body.gd" id="3_body"]
+[ext_resource type="Script" path="res://04-snake/scripts/snake_hud.gd" id="4_hud"]
+[ext_resource type="Script" path="res://04-snake/scripts/snake_audio.gd" id="5_audio"]
+
+[node name="Snake" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_game")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Board" type="Node2D" parent="."]
+script = ExtResource("2_board")
+
+[node name="Playfield" type="Node2D" parent="."]
+
+[node name="Body" type="Node2D" parent="Playfield"]
+script = ExtResource("3_body")
+
+[node name="FoodSlot" type="Node2D" parent="Playfield"]
+
+[node name="Hud" type="Control" parent="."]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("4_hud")
+
+[node name="ScoreLabel" type="Label" parent="Hud"]
+layout_mode = 0
+
+[node name="ScoreValue" type="Label" parent="Hud"]
+layout_mode = 0
+
+[node name="LevelLabel" type="Label" parent="Hud"]
+layout_mode = 0
+
+[node name="LevelValue" type="Label" parent="Hud"]
+layout_mode = 0
+
+[node name="LengthLabel" type="Label" parent="Hud"]
+layout_mode = 0
+
+[node name="LengthValue" type="Label" parent="Hud"]
+layout_mode = 0
+
+[node name="BestLabel" type="Label" parent="Hud"]
+layout_mode = 0
+
+[node name="BestValue" type="Label" parent="Hud"]
+layout_mode = 0
+
+[node name="Overlay" type="Control" parent="."]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Message" type="Label" parent="Overlay"]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = 180.0
+grow_horizontal = 2
+grow_vertical = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Audio" type="Node" parent="."]
+script = ExtResource("5_audio")
