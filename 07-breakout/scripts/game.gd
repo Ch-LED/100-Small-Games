@@ -236,8 +236,11 @@ func _read_paddle_input() -> void:
 	if direction != 0.0:
 		_pointer_mode = false
 	if _pointer_mode:
-		# get_local_mouse_position() has already undone the stretch transform.
-		_paddle.follow_pointer(_paddle.get_local_mouse_position().x)
+		# get_GLOBAL_mouse_position(), not the local one: local is measured from
+		# the paddle itself, so feeding that back as an absolute target makes the
+		# paddle chase the pointer's offset from the paddle — it settles at half
+		# the pointer's x and never reaches the right half.
+		_paddle.follow_pointer(_paddle.get_global_mouse_position().x)
 	else:
 		_paddle.set_direction(direction)
 

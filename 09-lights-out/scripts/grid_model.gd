@@ -81,21 +81,28 @@ func snapshot() -> int:
 
 
 ## Builds a solvable puzzle: press `press_count` DISTINCT cells from the solved
-## state. Distinct matters — pressing one cell twice cancels itself out, which
-## would quietly hand back an easier board than asked for. Because a press is
-## its own inverse, anything built this way can be undone.
-func scramble(rng: RandomNumberGenerator, press_count: int) -> void:
+## state, and hand back which cells those were. Distinct matters — pressing one
+## cell twice cancels itself out, which would quietly hand back an easier board
+## than asked for. Because a press is its own inverse, anything built this way
+## can be undone by pressing the same cells again.
+##
+## The returned set is deliberately only a *proof of solvability*: nothing keeps
+## it, and the hint never uses it (see optimal_solution()).
+func scramble(rng: RandomNumberGenerator, press_count: int) -> Array[Vector2i]:
 	bits = SOLVED
 	var candidates: Array[Vector2i] = []
 	for row in SIZE:
 		for col in SIZE:
 			candidates.append(Vector2i(col, row))
+	var chosen: Array[Vector2i] = []
 	var wanted: int = mini(press_count, candidates.size())
 	for i in wanted:
 		var pick := rng.randi_range(0, candidates.size() - 1)
 		var cell: Vector2i = candidates[pick]
 		candidates.remove_at(pick)
+		chosen.append(cell)
 		press(cell.y, cell.x)
+	return chosen
 
 
 ## Light chasing, run on a copy so the board itself is left alone.

@@ -3,9 +3,10 @@ extends Control
 ## Simon controller: the play-the-sequence / repeat-it loop, the round and speed
 ## curve, and the two read-only overlays.
 
-enum State { TITLE, PLAYBACK, INPUT, FAILED, OVER }
+enum State { TITLE, PLAYBACK, INPUT, ROUND_CLEAR, FAILED, OVER }
 
 const MESSAGE_FONT_SIZE := 24
+const NOTICE_TIME := 1.0
 ## Pad i answers to both of these actions. Order is PAD_UP / RIGHT / DOWN / LEFT.
 const PAD_ACTIONS: Array = [
 	["wasd_up", "arrow_up"],
@@ -37,6 +38,7 @@ var _playback_index := 0
 var _input_index := 0
 var _play_timer := 0.0
 var _state_timer := 0.0
+var _notice_timer := 0.0
 var _lit_timers: Array[float] = [0.0, 0.0, 0.0, 0.0]
 
 
@@ -83,6 +85,7 @@ func _start_run() -> void:
 		_sequence.append(_roll_step())
 	_round = 1
 	_input_index = 0
+	_notice_timer = 0.0
 	_message.text = ""
 	_hud.set_round(_round)
 	_audio.play_start()
@@ -114,23 +117,50 @@ func _complete_round() -> void:
 	# sequence the player has to give back.
 	_sequence.append(_roll_step())
 	_hud.set_round(_round)
-	_begin_playback()
+
+	# Hold before replaying. Starting the next sequence the instant the last key
+	# lands cuts off that key's flash and makes the new round feel like it
+	# ambushed the player; the pads are deliberately left alone here so the flash
+	# finishes on its own.
+	_state = State.ROUND_CLEAR
+	_state_timer = float(_cfg.play.round_pause)
+	_show_notice("ROUND %d" % _round)
 
 
 func _begin_failure() -> void:
 	_state = State.FAILED
 	_state_timer = float(_cfg.play.fail_pause)
+	_notice_timer = 0.0
+	_message.text = ""
 	_audio.play_error()
 	_darken_pads()
 
 
 func _finish() -> void:
 	_state = State.OVER
+	_notice_timer = 0.0
 	var cleared := maxi(0, _round - 1)
 	if cleared > _best:
 		_best = cleared
 	_hud.set_best(_best)
 	_message.text = "GAME OVER\n\nSEQUENCES CLEARED %d\n\nPRESS SPACE" % cleared
+
+
+## The banner is used by the between-rounds beat. It shows in any state except
+## the title screen, which owns the label itself.
+func _show_notice(text: String) -> void:
+	if _state == State.TITLE:
+		return
+	_message.text = text
+	_notice_timer = NOTICE_TIME
+
+
+func _tick_notice(delta: float) -> void:
+	if _notice_timer <= 0.0:
+		return
+	_notice_timer -= delta
+	if _notice_timer <= 0.0:
+		_message.text = ""
 
 
 # --- per-frame --------------------------------------------------------------
@@ -144,6 +174,8 @@ func _process(delta: float) -> void:
 	if Input.is_action_just_pressed("cheat_toggle"):
 		_readout.show_peek = not _readout.show_peek
 
+	_tick_notice(delta)
+
 	match _state:
 		State.TITLE, State.OVER:
 			if Input.is_action_just_pressed("fire"):
@@ -152,6 +184,10 @@ func _process(delta: float) -> void:
 			_tick_playback(delta)
 		State.INPUT:
 			pass
+		State.ROUND_CLEAR:
+			_state_timer -= delta
+			if _state_timer <= 0.0:
+				_begin_playback()
 		State.FAILED:
 			_state_timer -= delta
 			if _state_timer <= 0.0:
@@ -270,6 +306,8 @@ func _step_position() -> int:
 			return mini(_playback_index, _sequence.size())
 		State.INPUT:
 			return _input_index
+		State.ROUND_CLEAR:
+			return _sequence.size()
 	return 0
 
 
@@ -281,6 +319,8 @@ func _phase_name() -> String:
 			return "PLAYBACK"
 		State.INPUT:
 			return "INPUT"
+		State.ROUND_CLEAR:
+			return "CLEARED"
 		State.FAILED:
 			return "FAILED"
 	return "OVER"

@@ -28,6 +28,7 @@ static func load_all() -> Dictionary:
 			"start_length": int(file.get_value("play", "start_length", 1)),
 			"fail_pause": file.get_value("play", "fail_pause", 0.9),
 			"input_flash": file.get_value("play", "input_flash", 0.18),
+			"round_pause": file.get_value("play", "round_pause", 0.9),
 		},
 		"overlay": {
 			"dot_size": file.get_value("overlay", "dot_size", 14.0),
