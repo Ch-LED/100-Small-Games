@@ -1,0 +1,204 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://09-lights-out/scripts/game.gd" id="1_game"]
+[ext_resource type="Script" path="res://09-lights-out/scripts/hud.gd" id="2_hud"]
+[ext_resource type="Script" path="res://09-lights-out/scripts/lights_out_audio.gd" id="3_audio"]
+[ext_resource type="Script" path="res://09-lights-out/scripts/lights_out_debug.gd" id="4_debug"]
+
+[node name="LightsOut" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_game")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="BoardBacking" type="Panel" parent="."]
+layout_mode = 0
+mouse_filter = 2
+
+[node name="Board" type="GridContainer" parent="."]
+layout_mode = 0
+columns = 5
+mouse_filter = 2
+
+[node name="Cell0" type="Panel" parent="Board"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Cell1" type="Panel" parent="Board"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Cell2" type="Panel" parent="Board"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Cell3" type="Panel" parent="Board"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Cell4" type="Panel" parent="Board"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Cell5" type="Panel" parent="Board"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Cell6" type="Panel" parent="Board"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Cell7" type="Panel" parent="Board"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Cell8" type="Panel" parent="Board"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Cell9" type="Panel" parent="Board"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Cell10" type="Panel" parent="Board"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Cell11" type="Panel" parent="Board"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Cell12" type="Panel" parent="Board"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Cell13" type="Panel" parent="Board"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Cell14" type="Panel" parent="Board"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Cell15" type="Panel" parent="Board"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Cell16" type="Panel" parent="Board"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Cell17" type="Panel" parent="Board"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Cell18" type="Panel" parent="Board"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Cell19" type="Panel" parent="Board"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Cell20" type="Panel" parent="Board"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Cell21" type="Panel" parent="Board"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Cell22" type="Panel" parent="Board"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Cell23" type="Panel" parent="Board"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Cell24" type="Panel" parent="Board"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="DebugDraw" type="Node2D" parent="."]
+script = ExtResource("4_debug")
+
+[node name="Hud" type="Control" parent="."]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("2_hud")
+
+[node name="LevelLabel" type="Label" parent="Hud"]
+layout_mode = 0
+mouse_filter = 2
+
+[node name="LevelValue" type="Label" parent="Hud"]
+layout_mode = 0
+mouse_filter = 2
+
+[node name="PressLabel" type="Label" parent="Hud"]
+layout_mode = 0
+mouse_filter = 2
+
+[node name="PressValue" type="Label" parent="Hud"]
+layout_mode = 0
+mouse_filter = 2
+
+[node name="SolvedLabel" type="Label" parent="Hud"]
+layout_mode = 0
+mouse_filter = 2
+
+[node name="SolvedValue" type="Label" parent="Hud"]
+layout_mode = 0
+mouse_filter = 2
+
+[node name="Overlay" type="Control" parent="."]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Title" type="Label" parent="Overlay"]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = 616.0
+offset_bottom = -56.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Message" type="Label" parent="Overlay"]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = 672.0
+offset_bottom = -8.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Audio" type="Node" parent="."]
+script = ExtResource("3_audio")
