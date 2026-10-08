@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://07-breakout/scripts/ball.gd" id="1_ball"]
+
+[node name="Ball" type="Node2D"]
+script = ExtResource("1_ball")
+
+[node name="Visual" type="Polygon2D" parent="."]
