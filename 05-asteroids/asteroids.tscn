@@ -1,0 +1,89 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://05-asteroids/scripts/game.gd" id="1_game"]
+[ext_resource type="Script" path="res://05-asteroids/scripts/hud.gd" id="2_hud"]
+[ext_resource type="Script" path="res://05-asteroids/scripts/asteroids_audio.gd" id="3_audio"]
+[ext_resource type="Script" path="res://05-asteroids/scripts/asteroids_debug.gd" id="4_debug"]
+[ext_resource type="PackedScene" path="res://05-asteroids/scenes/ship.tscn" id="5_ship"]
+
+[node name="Asteroids" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_game")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Stars" type="Node2D" parent="."]
+
+[node name="Playfield" type="Node2D" parent="."]
+
+[node name="Rocks" type="Node2D" parent="Playfield"]
+
+[node name="Bullets" type="Node2D" parent="Playfield"]
+
+[node name="Ship" parent="Playfield" instance=ExtResource("5_ship")]
+
+[node name="SaucerSlot" type="Node2D" parent="Playfield"]
+
+[node name="DebugDraw" type="Node2D" parent="."]
+script = ExtResource("4_debug")
+
+[node name="Hud" type="Control" parent="."]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("2_hud")
+
+[node name="ScoreLabel" type="Label" parent="Hud"]
+layout_mode = 0
+
+[node name="ScoreValue" type="Label" parent="Hud"]
+layout_mode = 0
+
+[node name="HighLabel" type="Label" parent="Hud"]
+layout_mode = 0
+
+[node name="HighValue" type="Label" parent="Hud"]
+layout_mode = 0
+
+[node name="WaveLabel" type="Label" parent="Hud"]
+layout_mode = 0
+
+[node name="WaveValue" type="Label" parent="Hud"]
+layout_mode = 0
+
+[node name="Lives" type="Node2D" parent="Hud"]
+
+[node name="Overlay" type="Control" parent="."]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Message" type="Label" parent="Overlay"]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_bottom = -220.0
+grow_horizontal = 2
+grow_vertical = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Audio" type="Node" parent="."]
+script = ExtResource("3_audio")
