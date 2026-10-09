@@ -77,6 +77,11 @@ func is_attached() -> bool:
 	return _attached
 
 
+## Loose and moving: not stuck to the paddle, not held still between balls.
+func is_in_play() -> bool:
+	return not _attached and not _frozen
+
+
 func attach_to_paddle() -> void:
 	_attached = true
 	_speed = _base_speed
@@ -91,8 +96,7 @@ func launch() -> void:
 	var angle := deg_to_rad(randf_range(
 			float(_cfg.launch_min_deg), float(_cfg.launch_max_deg)))
 	var side := 1.0 if randf() < 0.5 else -1.0
-	velocity = Vector2(cos(angle) * side, -sin(angle))
-	_enforce_min_angle()
+	velocity = with_min_angle(Vector2(cos(angle) * side, -sin(angle)))
 
 
 ## Held still while the game is between balls or between levels.
@@ -222,6 +226,44 @@ func _clip_axis(origin: float, delta: float, lo: float, hi: float,
 	return {"t_near": t_near, "t_far": t_far, "hit_normal": hit_normal}
 
 
+## The direction the ball would leave the paddle with, given where it lands on
+## it. `jitter` is the random wobble in radians: the real bounce passes a random
+## one, the aim guide passes 0 and lets its fan's spread stand in for it.
+##
+## Shared by both, so a guide that predicts the bounce can never drift away from
+## the bounce it is predicting.
+func paddle_return_direction(paddle: BreakoutPaddle, jitter: float) -> Vector2:
+	var edge := clampf((position.x - paddle.center_x())
+			/ maxf(paddle.half_width, 0.001), -1.0, 1.0)
+	var tilt: float = float(_cfg.paddle_curve) * edge + jitter
+	var direction := velocity.bounce(Vector2.UP.rotated(tilt))
+	# The tilt must never drive the ball back down into the paddle.
+	if direction.y > 0.0:
+		direction.y = -direction.y
+	return with_min_angle(direction.normalized())
+
+
+## Clamps a direction to at least `min_angle_from_horizontal_deg` off the
+## horizontal, keeping both signs. Pure, so the guide can predict with it too.
+##
+## A shallow ball can otherwise rattle between the side walls forever without
+## ever reaching the bricks. (Note this is the mirror image of pong's rule,
+## which had to avoid near-vertical wall-to-wall loops instead.)
+##
+## A dead-horizontal ball is nudged *up*: it has no vertical momentum to
+## preserve, and down would dive it at the paddle for no reason. Real play
+## never produces exactly horizontal — a launch is steep and bounces keep
+## |v.y| >= sin(min) — but the tiebreak should not point the wrong way.
+func with_min_angle(direction: Vector2) -> Vector2:
+	var min_angle := deg_to_rad(float(_cfg.min_angle_from_horizontal_deg))
+	if asin(clampf(absf(direction.y), 0.0, 1.0)) >= min_angle:
+		return direction
+	var upward := direction.y < 0.0 or is_zero_approx(direction.y)
+	var y := sin(min_angle) * (-1.0 if upward else 1.0)
+	var x := sqrt(maxf(0.0, 1.0 - y * y)) * (1.0 if direction.x >= 0.0 else -1.0)
+	return Vector2(x, y)
+
+
 func _bounce(normal: Vector2, target) -> void:
 	var direction := velocity.bounce(normal)
 
@@ -229,16 +271,9 @@ func _bounce(normal: Vector2, target) -> void:
 		_speed = minf(_max_speed, _speed * (1.0 + float(_cfg.speed_boost_per_hit)))
 		if absf(normal.y) > 0.5:
 			# Front face: where it landed on the paddle steers the return angle.
-			var paddle: BreakoutPaddle = target
-			var edge := clampf((position.x - paddle.center_x())
-					/ maxf(paddle.half_width, 0.001), -1.0, 1.0)
-			var tilt: float = float(_cfg.paddle_curve) * edge
-			tilt += deg_to_rad(randf_range(
+			var jitter := deg_to_rad(randf_range(
 					-float(_cfg.random_deflect_deg), float(_cfg.random_deflect_deg)))
-			direction = velocity.bounce(normal.rotated(tilt))
-			# The tilt must never drive the ball back down into the paddle.
-			if direction.y > 0.0:
-				direction.y = -direction.y
+			direction = paddle_return_direction(target, jitter)
 
 	_set_direction(direction)
 
@@ -253,27 +288,7 @@ func _bounce(normal: Vector2, target) -> void:
 func _set_direction(direction: Vector2) -> void:
 	if direction.length() <= 0.0:
 		return
-	velocity = direction.normalized()
-	_enforce_min_angle()
-
-
-## Keep the direction at least `min_angle_from_horizontal_deg` away from the
-## horizontal. A shallow ball can otherwise rattle between the side walls
-## forever without ever reaching the bricks. (Note this is the mirror image of
-## pong's rule, which had to avoid near-vertical wall-to-wall loops instead.)
-##
-## A dead-horizontal ball is nudged *up*: it has no vertical momentum to
-## preserve, and down would dive it at the paddle for no reason. Real play
-## never produces exactly horizontal — a launch is steep and bounces keep
-## |v.y| >= sin(min) — but the tiebreak should not point the wrong way.
-func _enforce_min_angle() -> void:
-	var min_angle := deg_to_rad(float(_cfg.min_angle_from_horizontal_deg))
-	if asin(clampf(absf(velocity.y), 0.0, 1.0)) >= min_angle:
-		return
-	var upward := velocity.y < 0.0 or is_zero_approx(velocity.y)
-	var y := sin(min_angle) * (-1.0 if upward else 1.0)
-	var x := sqrt(maxf(0.0, 1.0 - y * y)) * (1.0 if velocity.x >= 0.0 else -1.0)
-	velocity = Vector2(x, y)
+	velocity = with_min_angle(direction.normalized())
 
 
 ## A paddle moving onto the ball between frames can leave it buried; push it back

@@ -13,6 +13,7 @@ const MESSAGE_FONT_SIZE := 24
 @onready var _bricks: Node2D = $Board/Bricks
 @onready var _paddle: BreakoutPaddle = $Board/Paddle
 @onready var _ball: BreakoutBall = $Board/Ball
+@onready var _aim: BreakoutAimGuide = $AimGuide
 @onready var _debug: BreakoutDebug = $DebugDraw
 @onready var _hud: BreakoutHud = $Hud
 @onready var _message: Label = $Overlay/Message
@@ -51,6 +52,10 @@ func _ready() -> void:
 	_ball.wall_hit.connect(_on_wall_hit)
 	_ball.lost.connect(_on_ball_lost)
 
+	_aim.configure(float(_cfg.aim_guide.radius), _cfg.aim_guide.color,
+			float(_cfg.aim_guide.alpha), float(_cfg.aim_guide.core_alpha),
+			float(_cfg.aim_guide.outline_alpha), int(_cfg.aim_guide.segments),
+			float(_cfg.aim_guide.core_ratio))
 	_hud.build(_cfg)
 	PixelFont.apply(_message, MESSAGE_FONT_SIZE)
 	_message.add_theme_color_override("font_color", _cfg.field.ball_color)
@@ -222,7 +227,37 @@ func _process(delta: float) -> void:
 			if _state_timer <= 0.0:
 				_after_level_clear()
 
+	_refresh_aim_guide()
 	_refresh_debug()
+
+
+## The fan only shows while the ball is on its way *down*: that is the moment
+## the choice of contact point is actually being made.
+func _refresh_aim_guide() -> void:
+	if not bool(_cfg.aim_guide.enabled) or not _ball.is_in_play() \
+			or _ball.velocity.y <= 0.0:
+		_aim.enabled = false
+		return
+
+	var origin := Vector2(_paddle.center_x(),
+			_paddle.position.y - _paddle.half_height)
+	# The very same function the bounce uses, with the random wobble left out —
+	# the fan's spread is what stands in for that wobble.
+	var direction := _ball.paddle_return_direction(_paddle, 0.0)
+
+	# Manhattan distance, as asked: horizontal gap plus vertical gap. The
+	# further away the ball is, the more room there is for a wall or a brick to
+	# redirect it first, so the fan opens up.
+	var gap := absf(_ball.position.x - _paddle.center_x()) \
+			+ absf(_ball.position.y - _paddle.position.y)
+	var near := float(_cfg.aim_guide.near)
+	var far := maxf(near + 1.0, float(_cfg.aim_guide.far))
+	var closeness := clampf((gap - near) / (far - near), 0.0, 1.0)
+	var half_width := deg_to_rad(lerpf(float(_cfg.aim_guide.min_spread_deg),
+			float(_cfg.aim_guide.max_spread_deg), closeness))
+
+	_aim.enabled = true
+	_aim.set_fan(origin, direction.angle(), half_width)
 
 
 ## Pointer or keys, whichever moved last.
