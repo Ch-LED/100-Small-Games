@@ -42,10 +42,11 @@ func _ready() -> void:
 
 # --- one-shots --------------------------------------------------------------
 
-func play_brick(row: int) -> void:
+## `pitch` climbs with a combo, so a long run of bricks plays as a rising line.
+func play_brick(row: int, pitch := 1.0) -> void:
 	if _bricks.is_empty():
 		return
-	_play(_bricks[clampi(row, 0, _bricks.size() - 1)])
+	_play(_bricks[clampi(row, 0, _bricks.size() - 1)], pitch)
 
 
 func play_paddle() -> void:
@@ -68,12 +69,13 @@ func play_launch() -> void:
 	_play(_launch)
 
 
-func _play(stream: AudioStreamWAV) -> void:
+func _play(stream: AudioStreamWAV, pitch := 1.0) -> void:
 	if stream == null or _pool.is_empty():
 		return
 	var player := _pool[_next]
 	_next = (_next + 1) % _pool.size()
 	player.stream = stream
+	player.pitch_scale = pitch
 	player.play()
 
 

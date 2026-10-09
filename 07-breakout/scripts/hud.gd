@@ -15,6 +15,7 @@ const VALUE_COLOR := Color("E8F1FF")
 @onready var _level_value: Label = $LevelValue
 @onready var _lives_label: Label = $LivesLabel
 @onready var _lives_value: Label = $LivesValue
+@onready var _combo_label: Label = $ComboLabel
 
 
 func build(cfg: Dictionary) -> void:
@@ -35,6 +36,15 @@ func build(cfg: Dictionary) -> void:
 	var right_x := BreakoutField.SIZE.x - margin - right_w
 	_column(_lives_label, _lives_value, "LIVES", right_x, label_y, value_y, size,
 			HORIZONTAL_ALIGNMENT_RIGHT, right_w)
+
+	# The combo sits under the score row, centred: it only appears while a run
+	# is actually paying, so it never competes with the standing readouts.
+	PixelFont.apply(_combo_label, size)
+	_combo_label.add_theme_color_override("font_color", cfg.hud.combo_color)
+	_combo_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_combo_label.position = Vector2(0.0, value_y + line_h * 0.9)
+	_combo_label.size = Vector2(BreakoutField.SIZE.x, line_h)
+	_combo_label.text = ""
 
 	set_score(0, 0)
 	set_level(1)
@@ -71,3 +81,12 @@ func set_level(level: int) -> void:
 
 func set_lives(lives: int) -> void:
 	_lives_value.text = "%02d" % lives
+
+
+## Only speaks up once the run is worth something: `multiplier` of 1 is just
+## ordinary play, so the badge stays away.
+func set_combo(combo: int, multiplier: int) -> void:
+	if combo <= 0 or multiplier <= 1:
+		_combo_label.text = ""
+		return
+	_combo_label.text = "COMBO %d   x%d" % [combo, multiplier]

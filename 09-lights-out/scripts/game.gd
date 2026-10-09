@@ -307,10 +307,15 @@ func _unhandled_input(event: InputEvent) -> void:
 ## Mouse goes through gui_input, whose positions are already in this Control's
 ## own coordinates — no need to reason about the stretch transform.
 func _gui_input(event: InputEvent) -> void:
-	if _state != State.PLAYING:
-		return
 	var click := event as InputEventMouseButton
 	if click == null or not click.pressed or click.button_index != MOUSE_BUTTON_LEFT:
+		return
+	# A click does what space does on the title screen (same note as in
+	# 06-simon): the pointer is already in hand.
+	if _state == State.TITLE:
+		_start_run()
+		return
+	if _state != State.PLAYING:
 		return
 	var cell := _cell_at(click.position)
 	if cell.x < 0:

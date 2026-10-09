@@ -79,6 +79,10 @@ mouse_filter = 2
 layout_mode = 0
 mouse_filter = 2
 
+[node name="ComboLabel" type="Label" parent="Hud"]
+layout_mode = 0
+mouse_filter = 2
+
 [node name="LivesValue" type="Label" parent="Hud"]
 layout_mode = 0
 mouse_filter = 2

@@ -29,6 +29,10 @@ var _level := 1
 var _state_timer := 0.0
 ## Bricks still standing in the current board.
 var _remaining := 0
+## Bricks broken since the ball last touched the paddle. The slot behind the
+## brick layer rattles the ball back and forth, and this is what makes that run
+## pay instead of merely stalling.
+var _combo := 0
 
 var _cheat := false
 var _debug_on := false
@@ -118,6 +122,7 @@ func _enter_title() -> void:
 	_paddle.set_width_scale(1.0)
 	_build_bricks()
 	_apply_level_speed()
+	_reset_combo()
 	_ball.set_frozen(false)
 	_ball.attach_to_paddle()
 	_hud.set_score(_score, _high)
@@ -143,6 +148,9 @@ func _start_run() -> void:
 ## The ball sits on the paddle so the player can line the shot up first.
 func _enter_ready() -> void:
 	_state = State.READY
+	# A fresh ball is a fresh run at the bricks, so the combo starts over. This
+	# is also the path a cleared level takes.
+	_reset_combo()
 	_ball.set_frozen(false)
 	_ball.attach_to_paddle()
 	_message.text = "PRESS SPACE TO LAUNCH"
@@ -260,7 +268,9 @@ func _refresh_aim_guide() -> void:
 	_aim.set_fan(origin, direction.angle(), half_width)
 
 
-## Pointer or keys, whichever moved last.
+## Pointer or keys, whichever moved last. A click is handled in _unhandled_input
+## (see there), which is why the root Control stays on IGNORE: that is what lets
+## both the motion and the click reach this script.
 func _read_paddle_input() -> void:
 	var direction := 0.0
 	if Input.is_action_pressed("wasd_left") or Input.is_action_pressed("arrow_left"):
@@ -284,6 +294,18 @@ func _unhandled_input(event: InputEvent) -> void:
 	# Only used to hand control to the pointer; the position is polled.
 	if event is InputEventMouseMotion:
 		_pointer_mode = true
+		return
+
+	# A click does what space does. With the pointer already in hand, reaching
+	# for the keyboard to launch or restart is a needless trip.
+	var click := event as InputEventMouseButton
+	if click == null or not click.pressed or click.button_index != MOUSE_BUTTON_LEFT:
+		return
+	match _state:
+		State.TITLE, State.OVER:
+			_start_run()
+		State.READY:
+			_launch()
 
 
 func _toggle_cheat() -> void:
@@ -299,14 +321,40 @@ func _on_brick_hit(brick: BreakoutBrick) -> void:
 	if not brick.break_brick():
 		return
 	_remaining -= 1
-	_add_score(brick.score)
-	_audio.play_brick(brick.row)
+	_combo += 1
+	var multiplier := _combo_multiplier()
+	_add_score(brick.score * multiplier)
+	_audio.play_brick(brick.row, _combo_pitch())
+	_hud.set_combo(_combo, multiplier)
 	if _remaining <= 0:
 		_begin_level_clear()
 
 
+## What a brick is worth right now. The first `combo_step` bricks of a run pay
+## face value; after that the run starts multiplying.
+func _combo_multiplier() -> int:
+	var step := maxi(1, int(_cfg.scoring.combo_step))
+	var reached := floori(float(maxi(0, _combo - 1)) / float(step))
+	return clampi(1 + reached, 1, maxi(1, int(_cfg.scoring.combo_max)))
+
+
+## The brick tone climbs with the run, so a long one plays as a rising line.
+func _combo_pitch() -> float:
+	var climb := 1.0 + float(maxi(0, _combo - 1)) \
+			* float(_cfg.scoring.combo_pitch_per_hit)
+	return minf(climb, float(_cfg.scoring.combo_pitch_max))
+
+
+func _reset_combo() -> void:
+	if _combo == 0:
+		return
+	_combo = 0
+	_hud.set_combo(0, 1)
+
+
 func _on_paddle_hit() -> void:
 	_audio.play_paddle()
+	_reset_combo()
 
 
 func _on_wall_hit() -> void:

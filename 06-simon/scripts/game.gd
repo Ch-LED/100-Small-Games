@@ -235,12 +235,17 @@ func _unhandled_input(event: InputEvent) -> void:
 ## Mouse goes through gui_input, whose positions are already in this Control's
 ## own coordinates — no need to reason about the stretch transform.
 func _gui_input(event: InputEvent) -> void:
-	if _state != State.INPUT:
-		return
 	var click := event as InputEventMouseButton
 	if click == null or not click.pressed or click.button_index != MOUSE_BUTTON_LEFT:
 		return
-	_press_pad(SimonBoard.pad_at(click.position))
+	# A click does what space does on the bookend screens. The pointer is in hand
+	# already — it took the mouse to pick this game off the hub — so reaching for
+	# the keyboard just to start is a needless trip.
+	match _state:
+		State.TITLE, State.OVER:
+			_start_run()
+		State.INPUT:
+			_press_pad(SimonBoard.pad_at(click.position))
 
 
 func _press_pad(pad: int) -> void:

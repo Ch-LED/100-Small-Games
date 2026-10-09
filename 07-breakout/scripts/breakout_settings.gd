@@ -47,8 +47,14 @@ static func load_all() -> Dictionary:
 			"max_speed": file.get_value("paddle", "max_speed", 900.0),
 			"cheat_width_scale": file.get_value("paddle", "cheat_width_scale", 1.8),
 		},
+		"scoring": {
+			"combo_step": int(file.get_value("scoring", "combo_step", 3)),
+			"combo_max": int(file.get_value("scoring", "combo_max", 5)),
+			"combo_pitch_per_hit": file.get_value("scoring", "combo_pitch_per_hit", 0.05),
+			"combo_pitch_max": file.get_value("scoring", "combo_pitch_max", 1.9),
+		},
 		"aim_guide": {
-			"enabled": bool(file.get_value("aim_guide", "enabled", true)),
+			"enabled": bool(file.get_value("aim_guide", "enabled", false)),
 			"radius": file.get_value("aim_guide", "radius", 86.0),
 			"min_spread_deg": file.get_value("aim_guide", "min_spread_deg", 3.0),
 			"max_spread_deg": file.get_value("aim_guide", "max_spread_deg", 34.0),
@@ -71,6 +77,7 @@ static func load_all() -> Dictionary:
 		"hud": {
 			"font_size": int(file.get_value("hud", "font_size", 16)),
 			"margin": file.get_value("hud", "margin", 24.0),
+			"combo_color": _color(file, "hud", "combo_color", Color("FFC24A")),
 		},
 	}
 
