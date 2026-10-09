@@ -12,6 +12,10 @@ const NOTICE_TIME := 0.9
 const OVERLAY_FONT_SIZE := 32
 const CHEAT_ON_TEXT := "WALL PASS ON"
 const CHEAT_OFF_TEXT := "WALL PASS OFF"
+const SUPER_ON_TEXT := "THE FOOD COMES TO YOU"
+const SUPER_OFF_TEXT := "FOOD STAYS PUT"
+## The super cheat's colour, shared with the other games.
+const SUPER_COLOR := Color("00E676")
 
 @onready var _background: ColorRect = $Background
 @onready var _board: SnakeBoard = $Board
@@ -38,6 +42,9 @@ var _notice_timer := 0.0
 var _debug := false
 ## Cheat key state: layered on top of the cfg's own wrap_edges, per run.
 var _cheat_wrap := false
+## The `]` super cheat: the food walks one cell toward the head per step, so a
+## run can be fed without ever travelling for it. Per run, like the other one.
+var _super_lure := false
 
 
 func _ready() -> void:
@@ -65,6 +72,7 @@ func _start_run() -> void:
 	_foods_eaten = 0
 	_step_timer = 0.0
 	_cheat_wrap = false
+	_super_lure = false
 	_notice_timer = 0.0
 	_body.reset(_starting_cells(), _start_direction())
 	_apply_wrap()
@@ -102,6 +110,8 @@ func _process(delta: float) -> void:
 		_refresh_debug()
 	if Input.is_action_just_pressed("cheat_toggle"):
 		_toggle_cheat()
+	if Input.is_action_just_pressed("super_cheat_toggle"):
+		_toggle_super_cheat()
 	if Input.is_action_just_pressed("ui_cancel"):
 		GameRouter.back_to_hub()
 		return
@@ -159,6 +169,8 @@ func _tick_step(delta: float) -> void:
 	_hud.set_length(_body.length())
 	if _body.head_cell() == _food_cell:
 		_on_eat()
+	else:
+		_walk_food_toward_head()
 	_refresh_debug()
 
 
@@ -180,7 +192,7 @@ func _spawn_food() -> void:
 	_food_cell = free_cells[_rng.randi_range(0, free_cells.size() - 1)]
 	_food = FOOD_SCENE.instantiate()
 	_food_slot.add_child(_food)
-	_food.configure(_food_cell, SnakeGrid.CELL, _cfg.food.color,
+	_food.configure(_food_cell, SnakeGrid.CELL, _food_color(),
 			_cfg.food.pulse_speed, _cfg.food.pulse_min)
 
 
@@ -260,6 +272,42 @@ func _refresh_debug() -> void:
 
 
 # --- cheat ------------------------------------------------------------------
+
+## The `]` super cheat. Closing the longer axis first keeps the food moving at
+## one cell per step on both axes rather than crawling along one of them.
+func _toggle_super_cheat() -> void:
+	_super_lure = not _super_lure
+	if is_instance_valid(_food):
+		_food.set_color(_food_color())
+	_show_notice(SUPER_ON_TEXT if _super_lure else SUPER_OFF_TEXT)
+
+
+func _food_color() -> Color:
+	return SUPER_COLOR if _super_lure else _cfg.food.color
+
+
+## Steps the food one cell toward the head. It may not step onto the snake, so it
+## simply stops when it is boxed in — which is always adjacent to the head, one
+## turn away from being eaten.
+func _walk_food_toward_head() -> void:
+	if not _super_lure or not is_instance_valid(_food):
+		return
+	var head := _body.head_cell()
+	var dx := head.x - _food_cell.x
+	var dy := head.y - _food_cell.y
+	var step := SnakeGrid.DIR_NONE
+	if absi(dx) >= absi(dy) and dx != 0:
+		step = Vector2i(signi(dx), 0)
+	elif dy != 0:
+		step = Vector2i(0, signi(dy))
+	if step == SnakeGrid.DIR_NONE:
+		return
+	var next := _food_cell + step
+	if not SnakeGrid.in_bounds(next) or _body.occupies(next):
+		return
+	_food_cell = next
+	_food.move_to(next)
+
 
 ## The cheat key toggles wall pass: the snake comes out the far side instead of
 ## dying.

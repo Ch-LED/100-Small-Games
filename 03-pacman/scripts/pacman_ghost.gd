@@ -16,8 +16,15 @@ const PREFERRED: Array[Vector2i] = [
 	PacmanGrid.DIR_UP, PacmanGrid.DIR_LEFT, PacmanGrid.DIR_DOWN, PacmanGrid.DIR_RIGHT,
 ]
 
+## The super cheat's colour, shared with the other games.
+const SUPER_COLOR := Color("00E676")
+
 var id := "blinky"
 var tint := Color.RED
+## The `]` super cheat. Kept out of State on purpose: chasing and fleeing share
+## every other rule (junction choice, no reversing, house discipline), so this
+## only swaps WHICH tile the ghost aims at.
+var super_flee := false
 var state: int = State.HOUSE
 ## Base speeds by situation; Game scales them per level via `level_scale`.
 var speeds := {"normal": 95.0, "fright": 62.0, "tunnel": 58.0, "eaten": 210.0}
@@ -100,6 +107,13 @@ func _can_use_door() -> bool:
 	if state == State.EATEN or _exiting:
 		return true
 	return state == State.HOUSE
+
+
+## The `]` super cheat, set from Game. Repaints immediately so the green lands
+## on the same frame as the key press, not on the next animation step.
+func set_super_flee(value: bool) -> void:
+	super_flee = value
+	_refresh_look()
 
 
 func set_state(new_state: int) -> void:
@@ -214,6 +228,12 @@ func _choose_direction() -> Vector2i:
 func _pick_target() -> Vector2i:
 	if state == State.EATEN:
 		return _nest_cell
+	if super_flee and not pursuit.is_null():
+		# Pac-Man mirrored through this ghost. Aiming at the reflection of someone
+		# is exactly running away from them, and it reuses the junction rule below
+		# unchanged — the ghost walks toward a tile it can never reach.
+		var pac: Vector2i = pursuit.call()["cell"]
+		return cell() * 2 - pac
 	if state == State.SCATTER or pursuit.is_null():
 		var scatter: Vector2i = PacmanGrid.SCATTER_TARGETS.get(id, _home_cell)
 		return scatter
@@ -269,7 +289,8 @@ func _refresh_look() -> void:
 			_eyes.visible = true
 		_:
 			_body.visible = true
-			_body.modulate = tint
+			# All four turning green is the whole explanation of the cheat.
+			_body.modulate = SUPER_COLOR if super_flee else tint
 			_body.texture = _sprites.texture("ghost_body", "walk", _anim_index)
 			_eyes.visible = true
 	_eyes.texture = _sprites.texture("ghost_eyes", PacmanGrid.dir_name(dir), 0)

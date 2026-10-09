@@ -51,6 +51,9 @@ var _level_fruits := 0
 ## Remaining pellet counts that trigger a fruit this level (from cfg).
 var _pending_fruits: Array = []
 
+## The `]` super cheat, mirrored onto every ghost.
+var _super_cheat := false
+
 var _mode_timer := 0.0
 var _mode_index := 0
 var _fright_timer := 0.0
@@ -176,6 +179,8 @@ func _fright_duration() -> float:
 func _process(delta: float) -> void:
 	if Input.is_action_just_pressed("debug_toggle"):
 		_debug.enabled = not _debug.enabled
+	if Input.is_action_just_pressed("super_cheat_toggle"):
+		_toggle_super_cheat()
 	if Input.is_action_just_pressed("ui_cancel"):
 		GameRouter.back_to_hub()
 		return
@@ -425,10 +430,22 @@ func _finish_game() -> void:
 	_audio.stop_siren()
 
 
+## The `]` super cheat: every ghost flees instead of hunting, so the maze can be
+## eaten at leisure. Turning them all green is the tell; there is nothing to read.
+## Reset by `_restart`, like the other games' cheats are reset by a new run.
+func _toggle_super_cheat() -> void:
+	_super_cheat = not _super_cheat
+	for ghost in _ghosts:
+		ghost.set_super_flee(_super_cheat)
+
+
 func _restart() -> void:
 	_score = 0
 	_level = 1
 	_lives = int(_cfg.player.start_lives)
+	_super_cheat = false
+	for ghost in _ghosts:
+		ghost.set_super_flee(false)
 	_maze.load_layout(_cfg.assets.layout)
 	_start_level(true)
 

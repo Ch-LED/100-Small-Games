@@ -28,6 +28,17 @@ func cell() -> Vector2i:
 	return SnakeGrid.cell_of(position)
 
 
+## Steps to another cell without disturbing the pulse, so a food that walks
+## reads as one food moving rather than as food being respawned.
+func move_to(cell: Vector2i) -> void:
+	position = SnakeGrid.cell_center(cell)
+
+
+## Recolours in place. Used by the super cheat, which re-dresses the food.
+func set_color(color: Color) -> void:
+	_block.color = color
+
+
 func _process(delta: float) -> void:
 	_time += delta
 	var wave := 0.5 + 0.5 * sin(_time * _pulse_speed)
