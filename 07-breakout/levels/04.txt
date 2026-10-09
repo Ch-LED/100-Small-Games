@@ -1,0 +1,7 @@
+# Level 4 — a lattice, so the ball can slip behind the wall and run along it.
+2.2.2.2.2.2.2.
+.2.2.2.2.2.2.2
+11111111111111
+11111111111111
+.1.1.1.1.1.1.1
+1.1.1.1.1.1.1.

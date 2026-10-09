@@ -4,7 +4,8 @@ extends Node
 ## synthesised once at startup. No audio assets.
 ##
 ## Voices:
-##   brick    one tone per row, the top row highest — the original's signature
+##   brick    one tone per brick layer, the last layer highest — the original's
+##            signature, retuned for bricks that take more than one hit
 ##   paddle   mid blip on the paddle
 ##   wall     lower blip on the side and top walls
 ##   lost     descending cadence
@@ -30,7 +31,7 @@ var _catch: AudioStreamWAV
 
 
 func _ready() -> void:
-	for freq in BreakoutSettings.load_all().field.row_tones:
+	for freq in BreakoutSettings.load_all().field.layer_tones:
 		_bricks.append(_tone(float(freq), 0.07, 0.20))
 	_paddle = _tone(320.0, 0.06, 0.20)
 	_wall = _tone(200.0, 0.05, 0.16)
@@ -48,11 +49,12 @@ func _ready() -> void:
 
 # --- one-shots --------------------------------------------------------------
 
-## `pitch` climbs with a combo, so a long run of bricks plays as a rising line.
-func play_brick(row: int, pitch := 1.0) -> void:
+## `layer` is the layer that just came off, 0 being the last one. `pitch` climbs
+## with a combo, so a long run of bricks plays as a rising line.
+func play_brick(layer: int, pitch := 1.0) -> void:
 	if _bricks.is_empty():
 		return
-	_play(_bricks[clampi(row, 0, _bricks.size() - 1)], pitch)
+	_play(_bricks[clampi(layer, 0, _bricks.size() - 1)], pitch)
 
 
 func play_paddle() -> void:

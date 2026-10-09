@@ -41,12 +41,16 @@ var _debug_on := false
 ## Once the pointer has moved it drives the paddle until a key takes over.
 var _pointer_mode := false
 
+## Every level file on disk, in name order, read once at startup.
+var _level_paths := PackedStringArray()
+## The level being played. Its grid, not cfg, decides the board's shape.
+var _level_data: BreakoutLevel = null
+
 
 func _ready() -> void:
 	_cfg = BreakoutSettings.load_all()
-	if not _validate_rows():
+	if not _validate_tables():
 		return
-	BreakoutField.configure(_cfg.field, (_cfg.field.brick_scores as Array).size())
 
 	_background.color = _cfg.field.bg_color
 	_build_frame()
@@ -60,20 +64,26 @@ func _ready() -> void:
 	_ball.lost.connect(_on_ball_lost)
 	_ball.caught.connect(_on_ball_caught)
 
+	_level_paths = BreakoutLevel.available()
+	if _level_paths.is_empty():
+		# .txt files do not ship in an exported build unless the preset says so,
+		# so a build that lost them must still be playable (DECISION_LOG 049).
+		push_error("BreakoutGame: no level files under %s" % BreakoutLevel.DIR)
+
 	_hud.build(_cfg)
 	PixelFont.apply(_message, MESSAGE_FONT_SIZE)
 	_message.add_theme_color_override("font_color", _cfg.field.ball_color)
 	_enter_title()
 
 
-## The three brick tables are indexed by row, so a mismatch would silently draw
-## the wrong colours or crash on the tone lookup.
-func _validate_rows() -> bool:
-	var rows: int = (_cfg.field.brick_scores as Array).size()
-	var ok: bool = (_cfg.field.brick_colors as Array).size() == rows \
-			and (_cfg.field.row_tones as Array).size() == rows
+## The three layer tables are indexed by the same number — how many hits — so a
+## mismatch would silently draw the wrong colour or read a tone that is not there.
+func _validate_tables() -> bool:
+	var layers: int = (_cfg.field.layer_scores as Array).size()
+	var ok: bool = (_cfg.field.layer_colors as Array).size() == layers \
+			and (_cfg.field.layer_tones as Array).size() == layers
 	if not ok:
-		push_error("BreakoutGame: brick_colors, brick_scores and row_tones must be the same length")
+		push_error("BreakoutGame: layer_colors, layer_scores and layer_tones must be the same length")
 	return ok
 
 
@@ -121,15 +131,47 @@ func _refresh_trail() -> void:
 	_trail.points = points
 
 
-## Shards in the brick's own row colour, fanned along the ball's travel.
-func _spawn_shards(brick: BreakoutBrick) -> void:
+## Shards in the colour of the layer that just came off, fanned along the ball's
+## travel.
+func _spawn_shards(brick: BreakoutBrick, at_color: Color) -> void:
 	if int(_cfg.shards.count) <= 0:
 		return
 	var burst: BreakoutShards = SHARD_SCENE.instantiate()
 	# Add before setup: setup() drives @onready children (CONSTITUTION 五).
 	_shards.add_child(burst)
-	burst.setup(brick.global_rect().get_center(),
-			_cfg.field.brick_colors[brick.row], _ball.velocity, _cfg.shards)
+	burst.setup(brick.global_rect().get_center(), at_color, _ball.velocity, _cfg.shards)
+
+
+## Resolves the file for the current `_level`, wraps around when the files run
+## out, and re-tiles the field to whatever grid it holds. Falls back to the
+## built-in level when a file is missing or rejected, so a bad edit costs one
+## level rather than the whole board.
+func _load_level() -> void:
+	_level_data = null
+	if not _level_paths.is_empty():
+		var index := posmod(_level - 1, _level_paths.size())
+		_level_data = BreakoutLevel.load_file(_level_paths[index])
+	if _level_data == null or not _level_fits():
+		_level_data = BreakoutLevel.fallback()
+	BreakoutField.configure(_cfg.field, _level_data)
+
+
+## Rejections are loud and specific: a level that asks for more layers than the
+## tables have entries would silently read the wrong colour and score, and a block
+## that reaches the paddle is one the ball can get stuck in.
+func _level_fits() -> bool:
+	var layers: int = (_cfg.field.layer_scores as Array).size()
+	var deepest := _level_data.max_hits()
+	if deepest > layers:
+		push_error("BreakoutGame: %s asks for %d layers, but the layer tables only go to %d"
+				% [_level_data.source, deepest, layers])
+		return false
+	var paddle_top: float = _paddle.position.y - _paddle.half_height
+	if BreakoutField.brick_block_bottom() > paddle_top - float(_cfg.field.brick_clearance):
+		push_error("BreakoutGame: %s reaches y = %.1f, too close to the paddle at %.1f"
+				% [_level_data.source, BreakoutField.brick_block_bottom(), paddle_top])
+		return false
+	return true
 
 
 func _build_bricks() -> void:
@@ -140,15 +182,20 @@ func _build_bricks() -> void:
 		if old != null:
 			old.retire()
 
+	# Holes are simply not built, so a level with a shape is also a level with
+	# fewer nodes for the ball's sweep to walk.
 	_remaining = 0
-	for row in BreakoutField.ROWS:
-		for col in BreakoutField.COLS:
+	for row in _level_data.row_count():
+		for col in _level_data.cols:
+			var hits := _level_data.hits(row, col)
+			if hits <= 0:
+				continue
 			var brick: BreakoutBrick = BRICK_SCENE.instantiate()
 			# Add before setup: setup() drives @onready children, which only
 			# resolve for a node already in the tree.
 			_bricks.add_child(brick)
 			brick.setup(BreakoutField.brick_rect(row, col),
-					_cfg.field.brick_colors[row], row, _cfg.field.brick_scores[row])
+					_cfg.field.layer_colors, hits)
 			_remaining += 1
 
 
@@ -161,6 +208,7 @@ func _enter_title() -> void:
 	_lives = int(_cfg.play.lives)
 	_cheat = false
 	_paddle.set_width_scale(1.0)
+	_load_level()
 	_build_bricks()
 	_apply_level_speed()
 	_reset_combo()
@@ -178,6 +226,7 @@ func _start_run() -> void:
 	_lives = int(_cfg.play.lives)
 	_cheat = false
 	_paddle.set_width_scale(1.0)
+	_load_level()
 	_build_bricks()
 	_apply_level_speed()
 	_hud.set_score(_score, _high)
@@ -215,6 +264,9 @@ func _begin_level_clear() -> void:
 func _after_level_clear() -> void:
 	_level += 1
 	_hud.set_level(_level)
+	# `_load_level` wraps around once the files run out, so the campaign loops
+	# while the speed keeps climbing (DECISION_LOG 049).
+	_load_level()
 	_build_bricks()
 	_apply_level_speed()
 	_message.text = ""
@@ -339,17 +391,31 @@ func _toggle_cheat() -> void:
 
 # --- ball callbacks ---------------------------------------------------------
 
+## A hit either chips a layer off a multi-layer brick or finishes it. The layer
+## struck indexes both the score and the tone (DECISION_LOG 049), and it has to be
+## read BEFORE the hit, because `hit()` already moved the brick on by one.
 func _on_brick_hit(brick: BreakoutBrick) -> void:
 	# Reached from the ball's physics step: only flags, score and a sound here.
 	# Rebuilding anything waits for _process.
-	if not brick.break_brick():
+	if brick.is_out_of_play():
 		return
-	_remaining -= 1
-	_combo += 1
+	var layer := brick.hp
+	var was_color := brick.color()
+	var destroyed := brick.hit()
+
+	# Every hit pays, so a two-layer brick is worth both of its layers. Only the
+	# hit that removes a brick counts as part of a combo — a combo counts bricks
+	# broken, and a chip is not one.
+	if destroyed:
+		_remaining -= 1
+		_combo += 1
 	var multiplier := _combo_multiplier()
-	_add_score(brick.score * multiplier)
-	_spawn_shards(brick)
-	_audio.play_brick(brick.row, _combo_pitch())
+	_add_score(int(_cfg.field.layer_scores[layer - 1]) * multiplier)
+	_spawn_shards(brick, was_color)
+	_audio.play_brick(layer - 1, _combo_pitch())
+
+	if not destroyed:
+		return
 	_hud.set_combo(_combo, multiplier)
 	if _remaining <= 0:
 		_begin_level_clear()

@@ -2,8 +2,8 @@ class_name BreakoutField
 ## Static geometry: the play area the ball bounces inside, the three wall rects,
 ## and the brick grid metrics.
 ##
-## The brick width is DERIVED from the column count and the play area width, so
-## changing `cols` or `margin_x` re-tiles the board with no other edit.
+## The brick width is DERIVED from the level's column count and the play area
+## width, so a level file decides its own grid and nothing here needs editing.
 
 const SIZE := Vector2(1280.0, 720.0)
 
@@ -18,17 +18,18 @@ static var COLS := 14
 static var ROWS := 8
 
 
-## `rows` is passed in rather than read from cfg here, so the single source of
-## the row count stays the brick tables in `BreakoutGame`.
-static func configure(field: Dictionary, rows: int) -> void:
+## Re-run whenever the level changes: the grid metrics are the level's, and
+## nothing under Board holds a transform, so they are absolute board coordinates
+## from here on.
+static func configure(field: Dictionary, level: BreakoutLevel) -> void:
 	LEFT = float(field.margin_x)
 	RIGHT = SIZE.x - float(field.margin_x)
 	TOP = float(field.wall_top)
 	WALL_THICKNESS = float(field.wall_thickness)
 	BRICK_GAP = float(field.brick_gap)
 	BRICK_TOP = TOP + float(field.brick_top)
-	COLS = int(field.cols)
-	ROWS = rows
+	COLS = maxi(1, level.cols)
+	ROWS = maxi(1, level.row_count())
 
 	var usable: float = (RIGHT - LEFT) - float(COLS - 1) * BRICK_GAP
 	BRICK_SIZE = Vector2(usable / float(COLS), float(field.brick_height))

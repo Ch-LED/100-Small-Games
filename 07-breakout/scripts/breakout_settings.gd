@@ -22,9 +22,10 @@ static func load_all() -> Dictionary:
 			"brick_height": file.get_value("field", "brick_height", 26.0),
 			"brick_gap": file.get_value("field", "brick_gap", 6.0),
 			"brick_top": file.get_value("field", "brick_top", 80.0),
-			"brick_colors": _colors(file, "field", "brick_colors", _default_colors()),
-			"brick_scores": _int_array(file, "field", "brick_scores", _default_scores()),
-			"row_tones": _float_array(file, "field", "row_tones", _default_tones()),
+			"brick_clearance": file.get_value("field", "brick_clearance", 40.0),
+			"layer_colors": _colors(file, "field", "layer_colors", _default_colors()),
+			"layer_scores": _int_array(file, "field", "layer_scores", _default_scores()),
+			"layer_tones": _float_array(file, "field", "layer_tones", _default_tones()),
 		},
 		"ball": {
 			"radius": file.get_value("ball", "radius", 9.0),
@@ -86,18 +87,15 @@ static func load_all() -> Dictionary:
 
 
 static func _default_colors() -> Array[Color]:
-	return [
-		Color("E74C3C"), Color("E67E22"), Color("F1C40F"), Color("2ECC71"),
-		Color("1ABC9C"), Color("3498DB"), Color("9B59B6"), Color("95A5A6"),
-	]
+	return [Color("95A5A6"), Color("3498DB"), Color("F1C40F")]
 
 
 static func _default_scores() -> Array[int]:
-	return [7, 7, 5, 5, 3, 3, 1, 1]
+	return [3, 5, 9]
 
 
 static func _default_tones() -> Array[float]:
-	return [1046.50, 880.00, 783.99, 659.25, 523.25, 440.00, 349.23, 261.63]
+	return [783.99, 659.25, 523.25]
 
 
 static func _color(file: ConfigFile, section: String, key: String,
