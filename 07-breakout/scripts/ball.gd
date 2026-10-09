@@ -9,7 +9,10 @@ extends Node2D
 ## never disturb the direction.
 
 signal brick_hit(brick: BreakoutBrick)
-signal paddle_hit
+## `smashed` is true when the paddle was mid-swing. A smash is the player's own
+## doing rather than the ball coming home, so it does not break a combo — the
+## receiver needs to know which one it was (DECISION_LOG 050).
+signal paddle_hit(smashed: bool)
 signal wall_hit
 signal lost
 ## The swing's retract caught the ball instead of bouncing it.
@@ -28,6 +31,9 @@ const VISUAL_SEGMENTS := 16
 var radius := 9.0
 var velocity := Vector2.RIGHT
 
+var _base_color := Color.WHITE
+var _hot_color := Color("FFC24A")
+
 var _cfg := {}
 var _base_speed := 430.0
 var _speed := 430.0
@@ -35,6 +41,11 @@ var _max_speed := 760.0
 var _attach_offset := 24.0
 var _attached := true
 var _frozen := false
+## True from a swing smash until the next ordinary contact. The ball is drawn hot
+## while it lasts, which is the tell that a smash is still carrying the combo.
+var _hot := false
+## The next launch comes off a swing's catch, so it is aimed tighter.
+var _from_catch := false
 ## Set for the rest of the sweep once the paddle catches the ball: there is
 ## nothing left to bounce off, the step is over.
 var _caught_this_step := false
@@ -51,13 +62,14 @@ func setup(ball_cfg: Dictionary, paddle: BreakoutPaddle, bricks: Node2D,
 	_speed = _base_speed
 	_max_speed = float(ball_cfg.max_speed)
 	_attach_offset = float(ball_cfg.attach_offset)
+	_base_color = color
+	_hot_color = ball_cfg.hot_color
 	_paddle = paddle
 	_bricks = bricks
 	_walls = BreakoutField.wall_rects()
 
 	# A drawn circle, so what you see is exactly the collision circle.
 	_visual.polygon = _circle_polygon()
-	_visual.color = color
 	attach_to_paddle()
 
 
@@ -87,10 +99,18 @@ func is_in_play() -> bool:
 	return not _attached and not _frozen
 
 
+## A smashed ball is drawn gold, and carries the combo on. Cleared by the next
+## ordinary paddle contact, by a catch, and by every fresh launch.
+func is_hot() -> bool:
+	return _hot
+
+
 func attach_to_paddle() -> void:
 	_attached = true
 	_speed = _base_speed
 	velocity = Vector2.RIGHT
+	_from_catch = false
+	_set_hot(false)
 	_snap_to_paddle()
 
 
@@ -98,8 +118,19 @@ func launch() -> void:
 	if not _attached:
 		return
 	_attached = false
-	var angle := deg_to_rad(randf_range(
-			float(_cfg.launch_min_deg), float(_cfg.launch_max_deg)))
+	# A ball handed back by a swing's catch is aimed tighter than a fresh one:
+	# tighter aim is the whole point of catching it, and the wide band was making
+	# the catch worth nothing but the speed reset.
+	var low := float(_cfg.launch_min_deg)
+	var high := float(_cfg.launch_max_deg)
+	if _from_catch:
+		var middle := (low + high) * 0.5
+		var half := (high - low) * 0.5 * float(_cfg.caught_spread_scale)
+		low = middle - half
+		high = middle + half
+	_from_catch = false
+
+	var angle := deg_to_rad(randf_range(low, high))
 	var side := 1.0 if randf() < 0.5 else -1.0
 	velocity = with_min_angle(Vector2(cos(angle) * side, -sin(angle)))
 
@@ -151,7 +182,16 @@ func _earliest_hit(step: Vector2) -> Dictionary:
 	for wall in _walls:
 		best = _keep_nearer(best, _sweep_rect(wall, step), null)
 	if _paddle != null:
-		best = _keep_nearer(best, _sweep_rect(_paddle.global_rect(), step), _paddle)
+		var paddle_hit := _sweep_rect(_paddle.global_rect(), step)
+		# The paddle's underside is transparent to a ball on its way UP and solid
+		# to one on its way DOWN. Whatever face a descending ball meets, the
+		# paddle sends it back up — a paddle may not lose you a ball that came to
+		# it. A rising ball passing under a raised paddle carries on and comes out
+		# on top, where the next contact is an ordinary front-face one.
+		if not paddle_hit.is_empty() and float(paddle_hit.normal.y) > 0.0 \
+				and velocity.y < 0.0:
+			paddle_hit = {}
+		best = _keep_nearer(best, paddle_hit, _paddle)
 	if _bricks != null:
 		for child in _bricks.get_children():
 			var brick := child as BreakoutBrick
@@ -279,21 +319,23 @@ func _bounce(normal: Vector2, target) -> void:
 		# The retract is a catch, not a bounce: a falling ball becomes one you
 		# can aim again instead of the one that ends the run.
 		attach_to_paddle()
+		_from_catch = true
 		_caught_this_step = true
 		caught.emit()
 		return
 
 	var direction := velocity.bounce(normal)
-
+	var smashed := false
 	if target is BreakoutPaddle:
 		var paddle: BreakoutPaddle = target
 		# A swung paddle hits harder than a parked one, and is allowed past the
 		# speed ceiling a parked paddle respects.
-		var swinging := paddle.is_swinging()
-		var boost: float = float(_cfg.swing_boost) if swinging \
+		smashed = paddle.is_swinging()
+		var boost: float = float(_cfg.swing_boost) if smashed \
 				else 1.0 + float(_cfg.speed_boost_per_hit)
-		var ceiling: float = float(_cfg.swing_max_speed) if swinging else _max_speed
+		var ceiling: float = float(_cfg.swing_max_speed) if smashed else _max_speed
 		_speed = minf(ceiling, _speed * boost)
+		_set_hot(smashed)
 		if absf(normal.y) > 0.5:
 			# Front face: where it landed on the paddle steers the return angle.
 			var jitter := deg_to_rad(randf_range(
@@ -303,11 +345,16 @@ func _bounce(normal: Vector2, target) -> void:
 	_set_direction(direction)
 
 	if target is BreakoutPaddle:
-		paddle_hit.emit()
+		paddle_hit.emit(smashed)
 	elif target is BreakoutBrick:
 		brick_hit.emit(target)
 	else:
 		wall_hit.emit()
+
+
+func _set_hot(value: bool) -> void:
+	_hot = value
+	_visual.color = _hot_color if _hot else _base_color
 
 
 func _set_direction(direction: Vector2) -> void:
@@ -322,10 +369,46 @@ func _push_out_of_overlaps() -> void:
 	for wall in _walls:
 		_push_out(wall)
 	if _paddle != null:
-		_push_out(_paddle.global_rect())
+		_resolve_paddle_overlap()
 
 
-func _push_out(rect: Rect2) -> void:
+## The one case the shallowest-face rule gets wrong: a lunging box can close
+## around a descending ball (or pull the floor out from under one), and pushing
+## that ball out the underside is pushing it into the floor. A swinging paddle
+## lifts it onto its top face instead, keeping the velocity — so it lands on the
+## top face next step and is smashed like any other save. Otherwise the ordinary
+## rule applies, minus any downward answer.
+func _resolve_paddle_overlap() -> void:
+	var rect := _paddle.global_rect()
+	var rest_top := _paddle.position.y - _paddle.half_height
+	if _paddle.is_swinging() and velocity.y > 0.0 and _in_lunge_path(rect, rest_top):
+		position = Vector2(position.x, rect.position.y - radius - SEPARATION)
+		return
+	_push_out(rect, true)
+
+
+## True when a descending ball sits in the volume the box swept through on its
+## way up — where it is now, plus the space it vacated — and has not yet passed
+## the resting surface. Every such ball was on its way to the resting top face,
+## which would have returned it; the lunge has to return it too. Without this,
+## swinging would be a way to LOSE a ball you were about to save, because the box
+## steps out from under it and it falls through the gap where the paddle was.
+func _in_lunge_path(raised: Rect2, rest_top: float) -> bool:
+	if position.y > rest_top - radius:
+		return false
+	var vacated := _paddle.position.y + _paddle.half_height
+	return _overlaps(Rect2(raised.position,
+			Vector2(raised.size.x, vacated - raised.position.y)))
+
+
+func _overlaps(rect: Rect2) -> bool:
+	var closest := Vector2(
+			clampf(position.x, rect.position.x, rect.end.x),
+			clampf(position.y, rect.position.y, rect.end.y))
+	return position.distance_to(closest) < radius
+
+
+func _push_out(rect: Rect2, one_way := false) -> void:
 	var closest := Vector2(
 			clampf(position.x, rect.position.x, rect.end.x),
 			clampf(position.y, rect.position.y, rect.end.y))
@@ -334,6 +417,8 @@ func _push_out(rect: Rect2) -> void:
 	if distance >= radius:
 		return
 	var normal := offset / distance if distance > 0.0001 else _shallow_face(rect)
+	if one_way and normal.y > 0.0:
+		return
 	position = closest + normal * (radius + SEPARATION)
 	if velocity.dot(normal) < 0.0:
 		_set_direction(velocity.bounce(normal))

@@ -41,6 +41,10 @@ var _debug_on := false
 ## Once the pointer has moved it drives the paddle until a key takes over.
 var _pointer_mode := false
 
+var _trail_cold: Gradient = null
+var _trail_hot: Gradient = null
+var _trail_is_hot := false
+
 ## Every level file on disk, in name order, read once at startup.
 var _level_paths := PackedStringArray()
 ## The level being played. Its grid, not cfg, decides the board's shape.
@@ -106,19 +110,34 @@ func _build_frame() -> void:
 ## along with it and never show a wake. Board has no transform, so absolute
 ## positions can be pushed into it directly.
 func _build_trail() -> void:
-	var tint: Color = _cfg.field.ball_color
+	var alpha := float(_cfg.ball.trail_alpha)
 	_trail.clear_points()
 	_trail.width = float(_cfg.ball.trail_width)
-	_trail.default_color = tint
+	# Two gradients, built once and swapped: a hot ball's trail says the combo is
+	# still riding on it, and swapping the resource is what forces the redraw.
+	_trail_cold = _fade_gradient(_cfg.field.ball_color, alpha)
+	_trail_hot = _fade_gradient(_cfg.ball.hot_color, alpha)
+	_apply_trail_color(false)
+
+
+func _fade_gradient(tint: Color, alpha: float) -> Gradient:
 	var fade := Gradient.new()
 	fade.set_color(0, Color(tint.r, tint.g, tint.b, 0.0))
-	fade.set_color(1, Color(tint.r, tint.g, tint.b, float(_cfg.ball.trail_alpha)))
-	_trail.gradient = fade
+	fade.set_color(1, Color(tint.r, tint.g, tint.b, alpha))
+	return fade
+
+
+func _apply_trail_color(hot: bool) -> void:
+	_trail_is_hot = hot
+	_trail.gradient = _trail_hot if hot else _trail_cold
+	_trail.default_color = _cfg.ball.hot_color if hot else _cfg.field.ball_color
 
 
 ## Dashed away whenever the ball is not in play, so a launch never draws a line
 ## across the board from wherever the last ball died.
 func _refresh_trail() -> void:
+	if _ball.is_hot() != _trail_is_hot:
+		_apply_trail_color(_ball.is_hot())
 	if _state != State.PLAYING or not _ball.is_in_play():
 		if _trail.get_point_count() > 0:
 			_trail.clear_points()
@@ -443,7 +462,13 @@ func _reset_combo() -> void:
 	_hud.set_combo(0, 1)
 
 
-func _on_paddle_hit() -> void:
+## A swing smash is not the ball coming home — it is the player reaching out and
+## hitting it, so it does not break the run. The ball goes gold for as long as it
+## carries the combo, which is the only thing that needs to be said about it.
+func _on_paddle_hit(smashed: bool) -> void:
+	if smashed:
+		_audio.play_smash()
+		return
 	_audio.play_paddle()
 	_reset_combo()
 
@@ -459,6 +484,9 @@ func _on_ball_caught() -> void:
 		return
 	_audio.play_catch()
 	_enter_ready()
+	# The catch is worth nothing if the relaunch is as random as a fresh ball, so
+	# say what it bought: the next shot is aimed tighter than usual.
+	_message.text = "CAUGHT\n\nPRESS SPACE TO LAUNCH"
 
 
 func _on_ball_lost() -> void:

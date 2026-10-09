@@ -1,10 +1,11 @@
-# Level 1 — a plain wall, where this game started.
-# The digit is how many hits the brick takes; '.' is a hole.
+# Level 1 — the plain wall, with windows punched through it so the ball can
+# get in behind and run. The digit is how many hits the brick takes; '.' is a
+# hole.
 11111111111111
+111..1111..111
+1111..11..1111
 11111111111111
-11111111111111
-11111111111111
-11111111111111
-11111111111111
-11111111111111
+1111..11..1111
+111..1111..111
+1111......1111
 11111111111111

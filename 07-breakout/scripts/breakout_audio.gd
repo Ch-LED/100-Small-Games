@@ -13,6 +13,7 @@ extends Node
 ##   launch   soft low blip
 ##   swing    fast rising whoosh, cut to the length of the lunge
 ##   catch    short rising pair when the retract catches the ball
+##   smash    low thump when a swung paddle meets the ball
 
 const MIX_RATE := 22050
 const POOL_SIZE := 8
@@ -28,6 +29,7 @@ var _cleared: AudioStreamWAV
 var _launch: AudioStreamWAV
 var _swing: AudioStreamWAV
 var _catch: AudioStreamWAV
+var _smash: AudioStreamWAV
 
 
 func _ready() -> void:
@@ -40,6 +42,8 @@ func _ready() -> void:
 	_launch = _tone(300.0, 0.10, 0.18)
 	_swing = _cadence([659.0, 988.0, 1319.0], 0.035, 0.14)
 	_catch = _cadence([523.0, 784.0], 0.06, 0.18)
+	# A thump rather than a blip: this one is the player hitting the ball.
+	_smash = _cadence([330.0, 165.0], 0.05, 0.30)
 
 	for i in POOL_SIZE:
 		var player := AudioStreamPlayer.new()
@@ -83,6 +87,10 @@ func play_swing() -> void:
 
 func play_catch() -> void:
 	_play(_catch)
+
+
+func play_smash() -> void:
+	_play(_smash)
 
 
 func _play(stream: AudioStreamWAV, pitch := 1.0) -> void:
