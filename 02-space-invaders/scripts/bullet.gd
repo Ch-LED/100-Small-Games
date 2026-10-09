@@ -22,8 +22,7 @@ var _direction := Vector2.ZERO
 ## The `]` super cheat: chase the nearest invader. `_fleet` is handed over by
 ## whoever spawned the shot.
 var _homing := false
-var _homing_rate := 0.0
-var _fleet: EnemyGrid = null
+var _seek: Homing = null
 var _frames: Array[AtlasTexture] = []
 var _index := 0
 var _anim_t := 0.0
@@ -73,23 +72,23 @@ func _process(delta: float) -> void:
 ## cleared without aiming. Green, so the state is visible in flight.
 func set_homing(fleet: EnemyGrid, rate: float) -> void:
 	_homing = true
-	_fleet = fleet
-	_homing_rate = rate
+	_seek = Homing.new(_nearest_target.bind(fleet), rate)
 	_sprite.modulate = SUPER_COLOR
+
+
+## What a shot aims at: the nearest living invader, or null when the formation is
+## empty — the plugin then leaves the shot flying straight on.
+func _nearest_target(_from: Vector2, fleet: EnemyGrid):
+	var enemy := fleet.nearest_alive_to(global_position)
+	return null if enemy == null else enemy.global_position
 
 
 ## Chases the nearest invader, and straightens back out to fly on when there is
 ## nothing left to chase.
 func _steer_home(delta: float) -> void:
-	if not _homing:
+	if _seek == null:
 		return
-	var target := Vector2(0.0, _dir)
-	if _fleet != null:
-		var enemy := _fleet.nearest_alive_to(global_position)
-		if enemy != null:
-			target = (enemy.global_position - global_position).normalized()
-	var weight := clampf(_homing_rate * delta, 0.0, 1.0)
-	_direction = _direction.slerp(target, weight).normalized()
+	_direction = _seek.steer(global_position, _direction, delta)
 
 
 func _animate(delta: float) -> void:

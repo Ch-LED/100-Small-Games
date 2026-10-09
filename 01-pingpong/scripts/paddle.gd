@@ -10,6 +10,7 @@ var side := ""
 var half_height := 60.0
 var _cfg := {}
 var _target := 0
+var _length_scale := 1.0
 var _min_y := 0.0
 var _max_y := 0.0
 
@@ -24,7 +25,6 @@ func _ready() -> void:
 func setup(paddle_side: String, cfg: Dictionary) -> void:
 	side = paddle_side
 	_cfg = cfg
-	half_height = cfg.height * 0.5
 	_apply_geometry()
 
 
@@ -34,9 +34,18 @@ func _physics_process(delta: float) -> void:
 	position.y = clampf(position.y + _target * _cfg.max_speed * delta, _min_y, _max_y)
 
 
+## The `[` cheat: a longer paddle is all this game needs to become easy.
+## `half_height` is derived here rather than kept in step by hand — the ball reads
+## it, and the field bounds are rebuilt from it by the game.
+func set_length_scale(scale: float) -> void:
+	_length_scale = maxf(0.2, scale)
+	_apply_geometry()
+
+
 func _apply_geometry() -> void:
 	var width: float = _cfg.width
-	var height: float = _cfg.height
+	var height: float = _cfg.height * _length_scale
+	half_height = height * 0.5
 	var shape := RectangleShape2D.new()
 	shape.size = Vector2(width, height)
 	_collision.shape = shape

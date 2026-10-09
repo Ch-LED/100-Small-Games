@@ -38,7 +38,7 @@ var _active := false
 ## The `]` super cheat: on the way back to the player the ball aims itself at
 ## that paddle, so the player cannot be scored on.
 var _super_homing := false
-var _homing_rate := 6.0
+var _homing: Homing = null
 
 
 func _ready() -> void:
@@ -52,7 +52,9 @@ func setup(cfg: Dictionary, cheat_cfg: Dictionary = {}) -> void:
 	_cfg = cfg
 	_radius = cfg.radius
 	_speed = cfg.speed
-	_homing_rate = float(cheat_cfg.get("homing_rate", 6.0))
+	_homing = Homing.new(_player_target, float(cheat_cfg.get("homing_rate", 6.0)),
+			float(cheat_cfg.get("homing_boost", 0.0)),
+			float(cheat_cfg.get("homing_span", 0.0)))
 	_apply_geometry()
 
 
@@ -72,15 +74,17 @@ func set_super_homing(value: bool) -> void:
 
 ## The super cheat. Once the ball is on its way to the player's paddle the only
 ## things left for it to meet are that paddle and the walls, so it may as well aim
-## itself at the paddle. Bends the direction and never the speed.
+## itself at the paddle. The steering is the shared plugin; what stays here is
+## WHEN it applies.
 func _steer_home(delta: float) -> void:
 	if not _super_homing or _vx <= 0.0:
 		return
-	var target := _paddle_right.global_position - global_position
-	if target.length() < 1.0:
-		return
-	var weight := clampf(_homing_rate * delta, 0.0, 1.0)
-	_set_direction(Vector2(_vx, _vy).slerp(target.normalized(), weight))
+	_set_direction(_homing.steer(global_position, Vector2(_vx, _vy), delta))
+
+
+## What a ball on its way back aims at: the middle of the player's paddle.
+func _player_target(_from: Vector2) -> Vector2:
+	return _paddle_right.global_position
 
 
 func set_center(at: Vector2) -> void:

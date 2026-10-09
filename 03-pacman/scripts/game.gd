@@ -53,6 +53,8 @@ var _pending_fruits: Array = []
 
 ## The `]` super cheat, mirrored onto every ghost.
 var _super_cheat := false
+## The `[` cheat: Pac-Man walks through walls. Reset by `_restart` with the other.
+var _cheat_noclip := false
 
 var _mode_timer := 0.0
 var _mode_index := 0
@@ -179,6 +181,8 @@ func _fright_duration() -> float:
 func _process(delta: float) -> void:
 	if Input.is_action_just_pressed("debug_toggle"):
 		_debug.enabled = not _debug.enabled
+	if Input.is_action_just_pressed("cheat_toggle"):
+		_toggle_cheat()
 	if Input.is_action_just_pressed("super_cheat_toggle"):
 		_toggle_super_cheat()
 	if Input.is_action_just_pressed("ui_cancel"):
@@ -430,6 +434,14 @@ func _finish_game() -> void:
 	_audio.stop_siren()
 
 
+## The `[` cheat: Pac-Man stops being stopped by walls, so the whole maze is
+## reachable in a straight line. The walls stay drawn and the ghosts stay
+## dangerous — what he gains is the map, not safety.
+func _toggle_cheat() -> void:
+	_cheat_noclip = not _cheat_noclip
+	_pacman.set_noclip(_cheat_noclip)
+
+
 ## The `]` super cheat: every ghost flees instead of hunting, so the maze can be
 ## eaten at leisure. Turning them all green is the tell; there is nothing to read.
 ## Reset by `_restart`, like the other games' cheats are reset by a new run.
@@ -444,6 +456,8 @@ func _restart() -> void:
 	_level = 1
 	_lives = int(_cfg.player.start_lives)
 	_super_cheat = false
+	_cheat_noclip = false
+	_pacman.set_noclip(false)
 	for ghost in _ghosts:
 		ghost.set_super_flee(false)
 	_maze.load_layout(_cfg.assets.layout)

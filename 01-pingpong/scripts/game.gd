@@ -26,6 +26,8 @@ var _waiting_for_serve := false
 ## The `]` super cheat. This game has no runs to reset it on — a rally runs
 ## forever — so it simply starts off.
 var _super_cheat := false
+## The `[` cheat. Same reasoning: it lives for as long as the player wants it.
+var _cheat_long := false
 
 
 func _ready() -> void:
@@ -68,8 +70,19 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		GameRouter.back_to_hub()
 		return
+	if event.is_action_pressed("cheat_toggle"):
+		_toggle_cheat()
 	if event.is_action_pressed("super_cheat_toggle"):
 		_toggle_super_cheat()
+
+
+## The `[` cheat: the player's paddle grows. The bounds are refreshed with it, or
+## the longer paddle would hang out past the top and bottom of the field.
+func _toggle_cheat() -> void:
+	_cheat_long = not _cheat_long
+	_paddle_right.set_length_scale(float(_cfg.cheat.paddle_scale) if _cheat_long else 1.0)
+	_paddle_right.refresh_bounds(_paddle_right.half_height,
+			size.y - _paddle_right.half_height)
 
 
 ## The `]` super cheat: the ball steers itself onto the player's paddle on the way

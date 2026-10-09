@@ -18,6 +18,9 @@ var dying := false
 
 var _maze: PacmanMaze
 var _sprites: PacmanSprites
+## The `[` cheat. Only the maze stops being an obstacle — ghosts still catch him,
+## and the walls stay drawn, so the deal is "walk through", not "become immune".
+var _noclip := false
 var _target_cell := Vector2i.ZERO
 var _anim_t := 0.0
 var _anim_index := 0
@@ -96,7 +99,7 @@ func _advance(budget: float) -> void:
 		if dir == PacmanGrid.DIR_NONE:
 			return
 		var next := _target_cell + dir
-		if not _maze.is_open(next, false):
+		if not _can_enter(next):
 			dir = PacmanGrid.DIR_NONE
 			return
 		_target_cell = next
@@ -107,14 +110,23 @@ func _advance(budget: float) -> void:
 			position += shift
 
 
+func set_noclip(value: bool) -> void:
+	_noclip = value
+
+
+## Whether Pac-Man may enter a cell. The maze answers unless the cheat is on.
+func _can_enter(cell: Vector2i) -> bool:
+	return _noclip or _maze.is_open(cell, false)
+
+
 ## At a cell centre: apply the buffered turn if it is legal, otherwise keep
 ## going while the current direction stays open.
 func _decide() -> void:
 	var here := _target_cell
-	if desired != PacmanGrid.DIR_NONE and _maze.is_open(here + desired, false):
+	if desired != PacmanGrid.DIR_NONE and _can_enter(here + desired):
 		dir = desired
 		desired = PacmanGrid.DIR_NONE
-	elif dir != PacmanGrid.DIR_NONE and not _maze.is_open(here + dir, false):
+	elif dir != PacmanGrid.DIR_NONE and not _can_enter(here + dir):
 		dir = PacmanGrid.DIR_NONE
 
 

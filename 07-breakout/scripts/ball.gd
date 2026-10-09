@@ -36,7 +36,7 @@ var velocity := Vector2.RIGHT
 
 var _base_color := Color.WHITE
 var _hot_color := Color("FFC24A")
-var _homing_rate := 8.0
+var _homing: Homing = null
 
 var _cfg := {}
 var _base_speed := 430.0
@@ -71,7 +71,8 @@ func setup(ball_cfg: Dictionary, paddle: BreakoutPaddle, bricks: Node2D,
 	_attach_offset = float(ball_cfg.attach_offset)
 	_base_color = color
 	_hot_color = ball_cfg.hot_color
-	_homing_rate = float(ball_cfg.super_homing_rate)
+	_homing = Homing.new(_paddle_target, float(ball_cfg.super_homing_rate),
+			float(ball_cfg.super_homing_boost), float(ball_cfg.super_homing_span))
 	_paddle = paddle
 	_bricks = bricks
 	_walls = BreakoutField.wall_rects()
@@ -171,18 +172,19 @@ func _physics_process(delta: float) -> void:
 
 ## The super cheat. Once a descending ball is past the brick block the only things
 ## left for it to meet are the paddle and the walls, so it may as well aim itself
-## at the paddle. Bends the direction and never the speed.
+## at the paddle. The steering itself is the shared plugin; what stays here is
+## WHEN it applies, and the minimum angle a ball is allowed to travel at.
 func _steer_home(delta: float) -> void:
 	if not _super_homing or _paddle == null or velocity.y <= 0.0:
 		return
 	if position.y <= BreakoutField.brick_block_bottom():
 		return
-	var target := Vector2(_paddle.center_x() - position.x,
-			_paddle.position.y - _paddle.half_height - position.y)
-	if target.length() < 1.0:
-		return
-	var weight := clampf(_homing_rate * delta, 0.0, 1.0)
-	velocity = with_min_angle(velocity.slerp(target.normalized(), weight).normalized())
+	velocity = with_min_angle(_homing.steer(position, velocity, delta))
+
+
+## What a descending ball aims at: the middle of the paddle's top face.
+func _paddle_target(_from: Vector2) -> Vector2:
+	return Vector2(_paddle.center_x(), _paddle.position.y - _paddle.half_height)
 
 
 # --- sweep ------------------------------------------------------------------

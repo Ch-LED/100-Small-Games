@@ -18,8 +18,7 @@ var _life := 0.0
 ## Super cheat: a Callable that answers "what should a shot from this point aim
 ## at?" with a Vector2, or null when there is nothing left to aim at. The caller
 ## hands it over, so a bullet never goes looking for the fleet itself.
-var _seek: Callable = Callable()
-var _homing_rate := 45.0
+var _homing: Homing = null
 
 
 func setup(from: Vector2, direction: Vector2, speed: float, player_owned: bool,
@@ -60,8 +59,7 @@ func velocity() -> Vector2:
 ## Turns this shot into a homing one, and repaints it so the cheat is visible on
 ## the thing it actually changes. Saucer shots are never given a seeker.
 func set_homing(seek: Callable, rate: float) -> void:
-	_seek = seek
-	_homing_rate = rate
+	_homing = Homing.new(seek, rate)
 	_visual.color = SUPER_COLOR
 
 
@@ -75,17 +73,9 @@ func _process(delta: float) -> void:
 
 ## Bends the direction toward the target and never the speed.
 func _steer(delta: float) -> void:
-	if not _seek.is_valid():
+	if _homing == null:
 		return
-	var target = _seek.call(position)
-	if target == null:
-		return
-	var to_target: Vector2 = target - position
-	if to_target.length() < 1.0:
-		return
-	var speed := _velocity.length()
-	var weight := clampf(_homing_rate * delta, 0.0, 1.0)
-	_velocity = _velocity.slerp(to_target.normalized() * speed, weight)
+	_velocity = _homing.steer(position, _velocity, delta)
 	rotation = _velocity.angle()
 
 

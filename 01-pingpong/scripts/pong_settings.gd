@@ -54,6 +54,9 @@ static func load_all() -> Dictionary:
 
 	cfg["cheat"] = {
 		"homing_rate": file.get_value("cheat", "homing_rate", 6.0),
+		"homing_boost": file.get_value("cheat", "homing_boost", 14.0),
+		"homing_span": file.get_value("cheat", "homing_span", 220.0),
+		"paddle_scale": file.get_value("cheat", "paddle_scale", 1.9),
 	}
 
 	cfg["scoreboard"] = {

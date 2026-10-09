@@ -41,6 +41,8 @@ static func load_all() -> Dictionary:
 			"caught_spread_scale": file.get_value("ball", "caught_spread_scale", 0.5),
 			"hot_color": _color(file, "ball", "hot_color", Color("FFC24A")),
 			"super_homing_rate": file.get_value("ball", "super_homing_rate", 8.0),
+			"super_homing_boost": file.get_value("ball", "super_homing_boost", 16.0),
+			"super_homing_span": file.get_value("ball", "super_homing_span", 160.0),
 			"attach_offset": file.get_value("ball", "attach_offset", 24.0),
 			"max_bounces": int(file.get_value("ball", "max_bounces", 8)),
 			"swing_boost": file.get_value("ball", "swing_boost", 1.35),
