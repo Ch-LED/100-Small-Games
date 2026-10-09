@@ -25,6 +25,9 @@ const SEPARATION := 0.05
 const MIN_STEP := 0.0001
 
 const VISUAL_SEGMENTS := 16
+## Every game's `]` cheat draws in this same green, the way every game's debug
+## overlay draws in the same yellow. It is a convention rather than a knob.
+const SUPER_COLOR := Color("00E676")
 
 @onready var _visual: Polygon2D = $Visual
 
@@ -33,6 +36,7 @@ var velocity := Vector2.RIGHT
 
 var _base_color := Color.WHITE
 var _hot_color := Color("FFC24A")
+var _homing_rate := 8.0
 
 var _cfg := {}
 var _base_speed := 430.0
@@ -44,6 +48,9 @@ var _frozen := false
 ## True from a swing smash until the next ordinary contact. The ball is drawn hot
 ## while it lasts, which is the tell that a smash is still carrying the combo.
 var _hot := false
+## The super cheat (`]`): a descending ball past the bricks steers onto the
+## paddle. It cannot be lost, and it is drawn in its own colour while it is on.
+var _super_homing := false
 ## The next launch comes off a swing's catch, so it is aimed tighter.
 var _from_catch := false
 ## Set for the rest of the sweep once the paddle catches the ball: there is
@@ -64,6 +71,7 @@ func setup(ball_cfg: Dictionary, paddle: BreakoutPaddle, bricks: Node2D,
 	_attach_offset = float(ball_cfg.attach_offset)
 	_base_color = color
 	_hot_color = ball_cfg.hot_color
+	_homing_rate = float(ball_cfg.super_homing_rate)
 	_paddle = paddle
 	_bricks = bricks
 	_walls = BreakoutField.wall_rects()
@@ -103,6 +111,15 @@ func is_in_play() -> bool:
 ## ordinary paddle contact, by a catch, and by every fresh launch.
 func is_hot() -> bool:
 	return _hot
+
+
+func is_super_homing() -> bool:
+	return _super_homing
+
+
+func set_super_homing(value: bool) -> void:
+	_super_homing = value
+	_apply_color()
 
 
 func attach_to_paddle() -> void:
@@ -146,9 +163,26 @@ func _physics_process(delta: float) -> void:
 	if _attached:
 		_snap_to_paddle()
 		return
+	_steer_home(delta)
 	_push_out_of_overlaps()
 	_sweep(velocity * _speed * delta)
 	_check_lost()
+
+
+## The super cheat. Once a descending ball is past the brick block the only things
+## left for it to meet are the paddle and the walls, so it may as well aim itself
+## at the paddle. Bends the direction and never the speed.
+func _steer_home(delta: float) -> void:
+	if not _super_homing or _paddle == null or velocity.y <= 0.0:
+		return
+	if position.y <= BreakoutField.brick_block_bottom():
+		return
+	var target := Vector2(_paddle.center_x() - position.x,
+			_paddle.position.y - _paddle.half_height - position.y)
+	if target.length() < 1.0:
+		return
+	var weight := clampf(_homing_rate * delta, 0.0, 1.0)
+	velocity = with_min_angle(velocity.slerp(target.normalized(), weight).normalized())
 
 
 # --- sweep ------------------------------------------------------------------
@@ -354,7 +388,18 @@ func _bounce(normal: Vector2, target) -> void:
 
 func _set_hot(value: bool) -> void:
 	_hot = value
-	_visual.color = _hot_color if _hot else _base_color
+	_apply_color()
+
+
+## Super beats hot for the drawing: the cheat is the state the player has to be
+## able to see from across the room.
+func _apply_color() -> void:
+	if _super_homing:
+		_visual.color = SUPER_COLOR
+	elif _hot:
+		_visual.color = _hot_color
+	else:
+		_visual.color = _base_color
 
 
 func _set_direction(direction: Vector2) -> void:

@@ -37,13 +37,15 @@ var _remaining := 0
 var _combo := 0
 
 var _cheat := false
+## The `]` super cheat. Reset with every run, like the other one.
+var _super_cheat := false
 var _debug_on := false
 ## Once the pointer has moved it drives the paddle until a key takes over.
 var _pointer_mode := false
 
-var _trail_cold: Gradient = null
-var _trail_hot: Gradient = null
-var _trail_is_hot := false
+## The tint the trail currently wears. The gradient is rebuilt only when this
+## changes, which is the swap that forces the redraw.
+var _trail_tint_now := Color.BLACK
 
 ## Every level file on disk, in name order, read once at startup.
 var _level_paths := PackedStringArray()
@@ -110,34 +112,35 @@ func _build_frame() -> void:
 ## along with it and never show a wake. Board has no transform, so absolute
 ## positions can be pushed into it directly.
 func _build_trail() -> void:
-	var alpha := float(_cfg.ball.trail_alpha)
 	_trail.clear_points()
 	_trail.width = float(_cfg.ball.trail_width)
-	# Two gradients, built once and swapped: a hot ball's trail says the combo is
-	# still riding on it, and swapping the resource is what forces the redraw.
-	_trail_cold = _fade_gradient(_cfg.field.ball_color, alpha)
-	_trail_hot = _fade_gradient(_cfg.ball.hot_color, alpha)
-	_apply_trail_color(false)
+	_set_trail_tint(_trail_tint())
 
 
-func _fade_gradient(tint: Color, alpha: float) -> Gradient:
+## The trail follows the ball's colour, so a gold or green ball drags a trail to
+## match. Assigning a fresh gradient is what forces the redraw.
+func _trail_tint() -> Color:
+	if _ball.is_super_homing():
+		return BreakoutBall.SUPER_COLOR
+	return _cfg.ball.hot_color if _ball.is_hot() else _cfg.field.ball_color
+
+
+func _set_trail_tint(tint: Color) -> void:
+	if tint == _trail_tint_now:
+		return
+	_trail_tint_now = tint
+	var alpha := float(_cfg.ball.trail_alpha)
 	var fade := Gradient.new()
 	fade.set_color(0, Color(tint.r, tint.g, tint.b, 0.0))
 	fade.set_color(1, Color(tint.r, tint.g, tint.b, alpha))
-	return fade
-
-
-func _apply_trail_color(hot: bool) -> void:
-	_trail_is_hot = hot
-	_trail.gradient = _trail_hot if hot else _trail_cold
-	_trail.default_color = _cfg.ball.hot_color if hot else _cfg.field.ball_color
+	_trail.gradient = fade
+	_trail.default_color = tint
 
 
 ## Dashed away whenever the ball is not in play, so a launch never draws a line
 ## across the board from wherever the last ball died.
 func _refresh_trail() -> void:
-	if _ball.is_hot() != _trail_is_hot:
-		_apply_trail_color(_ball.is_hot())
+	_set_trail_tint(_trail_tint())
 	if _state != State.PLAYING or not _ball.is_in_play():
 		if _trail.get_point_count() > 0:
 			_trail.clear_points()
@@ -225,8 +228,7 @@ func _enter_title() -> void:
 	_score = 0
 	_level = 1
 	_lives = int(_cfg.play.lives)
-	_cheat = false
-	_paddle.set_width_scale(1.0)
+	_reset_cheats()
 	_load_level()
 	_build_bricks()
 	_apply_level_speed()
@@ -243,8 +245,7 @@ func _start_run() -> void:
 	_score = 0
 	_level = 1
 	_lives = int(_cfg.play.lives)
-	_cheat = false
-	_paddle.set_width_scale(1.0)
+	_reset_cheats()
 	_load_level()
 	_build_bricks()
 	_apply_level_speed()
@@ -326,6 +327,8 @@ func _process(delta: float) -> void:
 		_debug.enabled = _debug_on
 	if Input.is_action_just_pressed("cheat_toggle"):
 		_toggle_cheat()
+	if Input.is_action_just_pressed("super_cheat_toggle"):
+		_toggle_super_cheat()
 
 	_read_paddle_input()
 
@@ -403,9 +406,25 @@ func _unhandled_input(event: InputEvent) -> void:
 			_try_swing()
 
 
+## Both cheats are per-run, so every path that begins a run puts them back.
+func _reset_cheats() -> void:
+	_cheat = false
+	_paddle.set_width_scale(1.0)
+	_super_cheat = false
+	_ball.set_super_homing(false)
+
+
 func _toggle_cheat() -> void:
 	_cheat = not _cheat
 	_paddle.set_width_scale(float(_cfg.paddle.cheat_width_scale) if _cheat else 1.0)
+
+
+## The `]` super cheat: once the ball is past the bricks on its way down the only
+## things left for it to meet are the paddle and the walls, so it steers itself
+## onto the paddle. The ball turns green, which is the whole explanation.
+func _toggle_super_cheat() -> void:
+	_super_cheat = not _super_cheat
+	_ball.set_super_homing(_super_cheat)
 
 
 # --- ball callbacks ---------------------------------------------------------
