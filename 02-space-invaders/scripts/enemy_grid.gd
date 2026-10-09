@@ -140,6 +140,21 @@ func alive_count() -> int:
 	return _enemies.size()
 
 
+## The living invader nearest to `from`, or null when the formation is empty.
+## The `]` super cheat's shots aim with it.
+func nearest_alive_to(from: Vector2) -> InvaderEnemy:
+	var best: InvaderEnemy = null
+	var best_distance := INF
+	for enemy in _enemies:
+		if not is_instance_valid(enemy):
+			continue
+		var distance := from.distance_squared_to(enemy.global_position)
+		if distance < best_distance:
+			best_distance = distance
+			best = enemy
+	return best
+
+
 func lowest_y() -> float:
 	var lowest := -INF
 	for enemy in _enemies:

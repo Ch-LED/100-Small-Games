@@ -52,6 +52,10 @@ static func load_all() -> Dictionary:
 		"dead_zone": file.get_value("ai", "dead_zone", 6.0),
 	}
 
+	cfg["cheat"] = {
+		"homing_rate": file.get_value("cheat", "homing_rate", 6.0),
+	}
+
 	cfg["scoreboard"] = {
 		"font_size": file.get_value("scoreboard", "font_size", 300.0),
 		"alpha": file.get_value("scoreboard", "alpha", 0.38),

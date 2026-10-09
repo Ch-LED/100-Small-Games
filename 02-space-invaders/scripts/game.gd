@@ -48,6 +48,9 @@ var _wave_pending := false
 var _fire_lock := 0.0
 ## Debug cheat (P): lifts the single-bullet rule so fire is unrestricted.
 var _fire_cheat := false
+## The `]` super cheat: shots home in on the nearest invader, so a wave can be
+## cleared without aiming. Every run starts with it off.
+var _super_cheat := false
 
 
 func _ready() -> void:
@@ -69,6 +72,8 @@ func _process(delta: float) -> void:
 		return
 	if Input.is_action_just_pressed("debug_toggle"):
 		_fire_cheat = not _fire_cheat
+	if Input.is_action_just_pressed("super_cheat_toggle"):
+		_super_cheat = not _super_cheat
 	match _state:
 		State.TITLE:
 			if Input.is_action_just_pressed("fire"):
@@ -219,6 +224,7 @@ func _start_game() -> void:
 	_score = 0
 	_lives = _cfg.player.lives
 	_level = 1
+	_super_cheat = false
 	_state = State.PLAYING
 	_playfield.process_mode = Node.PROCESS_MODE_INHERIT
 	_overlay.visible = false
@@ -277,6 +283,8 @@ func _try_player_fire() -> void:
 	_bullet_root.add_child(bullet)
 	bullet.setup(InvaderBullet.KIND_LAZER, _cfg.player.bullet_speed, true, _sprites, _factor,
 			_bullet_min_size())
+	if _super_cheat:
+		bullet.set_homing(_grid, float(_cfg.cheat.homing_rate))
 	_player_bullet = bullet
 	_audio.play_shoot()
 

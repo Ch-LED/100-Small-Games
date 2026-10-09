@@ -17,6 +17,8 @@ signal wall_hit
 const SEPARATION := 0.05
 ## Cap on reflections within one frame (a wedge can otherwise loop forever).
 const MAX_BOUNCES := 8
+## The `]` super cheat's colour, the same in every game in this project.
+const SUPER_COLOR := Color("00E676")
 
 @onready var _paddle_left: PongPaddle = $"../PaddleLeft"
 @onready var _paddle_right: PongPaddle = $"../PaddleRight"
@@ -33,6 +35,10 @@ var _vy := 0.0
 var _speed := 520.0
 var _radius := 11.0
 var _active := false
+## The `]` super cheat: on the way back to the player the ball aims itself at
+## that paddle, so the player cannot be scored on.
+var _super_homing := false
+var _homing_rate := 6.0
 
 
 func _ready() -> void:
@@ -42,19 +48,39 @@ func _ready() -> void:
 
 ## Geometry is built here rather than in _ready: the scene instance enters the
 ## tree before Game has had a chance to hand over the config.
-func setup(cfg: Dictionary) -> void:
+func setup(cfg: Dictionary, cheat_cfg: Dictionary = {}) -> void:
 	_cfg = cfg
 	_radius = cfg.radius
 	_speed = cfg.speed
+	_homing_rate = float(cheat_cfg.get("homing_rate", 6.0))
 	_apply_geometry()
 
 
 func _physics_process(delta: float) -> void:
 	if not _active:
 		return
+	_steer_home(delta)
 	_push_out_of_overlaps()
 	_sweep(Vector2(_vx, _vy) * _speed * delta)
 	_check_goal()
+
+
+func set_super_homing(value: bool) -> void:
+	_super_homing = value
+	_apply_visual_color()
+
+
+## The super cheat. Once the ball is on its way to the player's paddle the only
+## things left for it to meet are that paddle and the walls, so it may as well aim
+## itself at the paddle. Bends the direction and never the speed.
+func _steer_home(delta: float) -> void:
+	if not _super_homing or _vx <= 0.0:
+		return
+	var target := _paddle_right.global_position - global_position
+	if target.length() < 1.0:
+		return
+	var weight := clampf(_homing_rate * delta, 0.0, 1.0)
+	_set_direction(Vector2(_vx, _vy).slerp(target.normalized(), weight))
 
 
 func set_center(at: Vector2) -> void:
@@ -80,9 +106,15 @@ func _apply_geometry() -> void:
 	var diameter := _radius * 2.0
 	_visual.size = Vector2(diameter, diameter)
 	_visual.position = Vector2(-_radius, -_radius)
-	var ball_color: Color = _cfg.color
-	_visual.color = Color(ball_color.r, ball_color.g, ball_color.b, _cfg.color_alpha)
+	_apply_visual_color()
 	_visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+
+## Green while the super cheat is on: the colour is the whole explanation, so it
+## replaces the ball's own.
+func _apply_visual_color() -> void:
+	var tint: Color = SUPER_COLOR if _super_homing else _cfg.color
+	_visual.color = Color(tint.r, tint.g, tint.b, _cfg.color_alpha)
 
 
 # --- collision --------------------------------------------------------------

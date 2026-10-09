@@ -67,6 +67,9 @@ static func load_all() -> Dictionary:
 			"min_width": file.get_value("bullet", "min_width", 16.0),
 			"min_height": file.get_value("bullet", "min_height", 16.0),
 		},
+		"cheat": {
+			"homing_rate": file.get_value("cheat", "homing_rate", 10.0),
+		},
 		"score": {
 			"squid": int(file.get_value("score", "squid", 40)),
 			"claude": int(file.get_value("score", "claude", 20)),

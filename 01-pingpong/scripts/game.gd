@@ -23,6 +23,9 @@ var _cfg := {}
 var _score := 0
 var _serve_wait := 0.0
 var _waiting_for_serve := false
+## The `]` super cheat. This game has no runs to reset it on — a rally runs
+## forever — so it simply starts off.
+var _super_cheat := false
 
 
 func _ready() -> void:
@@ -31,7 +34,7 @@ func _ready() -> void:
 
 	_paddle_left.setup("left", _cfg.paddle)
 	_paddle_right.setup("right", _cfg.paddle)
-	_ball.setup(_cfg.ball)
+	_ball.setup(_cfg.ball, _cfg.cheat)
 	_ball.scored.connect(_on_scored)
 	_ball.paddle_hit.connect(_on_paddle_hit)
 	_ball.wall_hit.connect(_audio.play_wall)
@@ -64,6 +67,17 @@ func _physics_process(_delta: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		GameRouter.back_to_hub()
+		return
+	if event.is_action_pressed("super_cheat_toggle"):
+		_toggle_super_cheat()
+
+
+## The `]` super cheat: the ball steers itself onto the player's paddle on the way
+## back, so the player cannot be scored on. The ball turns green, which is the
+## whole explanation.
+func _toggle_super_cheat() -> void:
+	_super_cheat = not _super_cheat
+	_ball.set_super_homing(_super_cheat)
 
 
 ## Player intent is the fallthrough of the wasd and arrow actions (DECISION_LOG 010).

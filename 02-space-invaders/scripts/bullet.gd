@@ -6,6 +6,8 @@ extends Area2D
 const KIND_LAZER := "lazer"
 const KIND_ENERGY := "plaz"
 const KIND_DART := "drat"
+## The `]` super cheat's colour, the same in every game in this project.
+const SUPER_COLOR := Color("00E676")
 
 @onready var _collision: CollisionShape2D = $Collision
 @onready var _sprite: Sprite2D = $Sprite
@@ -14,6 +16,14 @@ var is_player := false
 
 var _speed := 900.0
 var _dir := -1.0
+## Travels along this, so homing can bend it. Straight up or straight down
+## unless the super cheat is aiming it.
+var _direction := Vector2.ZERO
+## The `]` super cheat: chase the nearest invader. `_fleet` is handed over by
+## whoever spawned the shot.
+var _homing := false
+var _homing_rate := 0.0
+var _fleet: EnemyGrid = null
 var _frames: Array[AtlasTexture] = []
 var _index := 0
 var _anim_t := 0.0
@@ -26,6 +36,7 @@ func setup(tag: String, speed: float, travel_up: bool, sprites: SpaceSprites, fa
 	is_player = travel_up
 	_speed = speed
 	_dir = -1.0 if travel_up else 1.0
+	_direction = Vector2(0.0, _dir)
 
 	collision_layer = SpaceLayers.PLAYER_BULLET if travel_up else SpaceLayers.ENEMY_BULLET
 	if travel_up:
@@ -51,10 +62,34 @@ func setup(tag: String, speed: float, travel_up: bool, sprites: SpaceSprites, fa
 
 
 func _process(delta: float) -> void:
-	position.y += _dir * _speed * delta
+	_steer_home(delta)
+	position += _direction * _speed * delta
 	_animate(delta)
 	if _is_offscreen():
 		queue_free()
+
+
+## The super cheat: turn toward the nearest living invader, so a wave can be
+## cleared without aiming. Green, so the state is visible in flight.
+func set_homing(fleet: EnemyGrid, rate: float) -> void:
+	_homing = true
+	_fleet = fleet
+	_homing_rate = rate
+	_sprite.modulate = SUPER_COLOR
+
+
+## Chases the nearest invader, and straightens back out to fly on when there is
+## nothing left to chase.
+func _steer_home(delta: float) -> void:
+	if not _homing:
+		return
+	var target := Vector2(0.0, _dir)
+	if _fleet != null:
+		var enemy := _fleet.nearest_alive_to(global_position)
+		if enemy != null:
+			target = (enemy.global_position - global_position).normalized()
+	var weight := clampf(_homing_rate * delta, 0.0, 1.0)
+	_direction = _direction.slerp(target, weight).normalized()
 
 
 func _animate(delta: float) -> void:
@@ -68,8 +103,11 @@ func _animate(delta: float) -> void:
 	_sprite.texture = _frames[_index % _frames.size()]
 
 
+## The x bounds matter once a shot is homing: a bent shot can leave the field
+## sideways without ever reaching the top or bottom.
 func _is_offscreen() -> bool:
-	return position.y < -32.0 or position.y > SpaceField.SIZE.y + 32.0
+	return position.y < -32.0 or position.y > SpaceField.SIZE.y + 32.0 \
+			or position.x < -32.0 or position.x > SpaceField.SIZE.x + 32.0
 
 
 func _on_area_entered(area: Area2D) -> void:
