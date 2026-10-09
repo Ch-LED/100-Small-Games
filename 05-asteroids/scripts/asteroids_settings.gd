@@ -46,6 +46,7 @@ static func load_all() -> Dictionary:
 			"lifetime": file.get_value("bullet", "lifetime", 1.05),
 			"radius": file.get_value("bullet", "radius", 3.0),
 			"length": file.get_value("bullet", "length", 11.0),
+			"homing_rate": file.get_value("bullet", "homing_rate", 45.0),
 		},
 		"rock": {
 			"radius": _float_array(file, "rock", "radius", [46.0, 26.0, 14.0]),

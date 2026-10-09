@@ -7,6 +7,9 @@ enum State { TITLE, PLAYBACK, INPUT, ROUND_CLEAR, FAILED, OVER }
 
 const MESSAGE_FONT_SIZE := 24
 const NOTICE_TIME := 1.0
+## The hub's colour while the `]` super cheat is on. Green here reads as "the
+## machine has taken over", and it never collides with the pads' own lighting.
+const SUPER_COLOR := Color("00E676")
 ## Pad i answers to both of these actions. Order is PAD_UP / RIGHT / DOWN / LEFT.
 const PAD_ACTIONS: Array = [
 	["wasd_up", "arrow_up"],
@@ -37,6 +40,9 @@ var _best := 0
 var _playback_index := 0
 var _input_index := 0
 var _play_timer := 0.0
+## The `]` super cheat: the computer presses the pads for you.
+var _super_cheat := false
+var _auto_timer := 0.0
 var _state_timer := 0.0
 var _notice_timer := 0.0
 var _lit_timers: Array[float] = [0.0, 0.0, 0.0, 0.0]
@@ -73,6 +79,7 @@ func _enter_title() -> void:
 	_round = 1
 	_playback_index = 0
 	_input_index = 0
+	_set_super_cheat(false)
 	_darken_pads()
 	_hud.set_round(_round)
 	_hud.set_best(_best)
@@ -86,6 +93,7 @@ func _start_run() -> void:
 	_round = 1
 	_input_index = 0
 	_notice_timer = 0.0
+	_set_super_cheat(false)
 	_message.text = ""
 	_hud.set_round(_round)
 	_audio.play_start()
@@ -173,6 +181,8 @@ func _process(delta: float) -> void:
 		_readout.show_state = not _readout.show_state
 	if Input.is_action_just_pressed("cheat_toggle"):
 		_readout.show_peek = not _readout.show_peek
+	if Input.is_action_just_pressed("super_cheat_toggle"):
+		_toggle_super_cheat()
 
 	_tick_notice(delta)
 
@@ -183,7 +193,7 @@ func _process(delta: float) -> void:
 		State.PLAYBACK:
 			_tick_playback(delta)
 		State.INPUT:
-			pass
+			_tick_auto_play(delta)
 		State.ROUND_CLEAR:
 			_state_timer -= delta
 			if _state_timer <= 0.0:
@@ -209,6 +219,33 @@ func _tick_playback(delta: float) -> void:
 	_audio.play_tone(pad)
 	_playback_index += 1
 	_play_timer = _step_seconds()
+
+
+## The `]` super cheat. The presses go through _press_pad, which is the path a key
+## or a click takes, so the lights, the tones and the round hand-off behave exactly
+## as they do when the player presses them. Paced, so it reads as the game playing
+## itself rather than as a glitch.
+func _tick_auto_play(delta: float) -> void:
+	if not _super_cheat or _input_index >= _sequence.size():
+		return
+	_auto_timer -= delta
+	if _auto_timer > 0.0:
+		return
+	_auto_timer = float(_cfg.play.auto_step)
+	_press_pad(_sequence[_input_index])
+
+
+func _toggle_super_cheat() -> void:
+	_set_super_cheat(not _super_cheat)
+	_show_notice("AUTO PLAY ON" if _super_cheat else "AUTO PLAY OFF")
+
+
+## The hub carries the state: green means the machine is playing. This is the one
+## thing that cannot be mistaken for a pad lighting up.
+func _set_super_cheat(value: bool) -> void:
+	_super_cheat = value
+	_auto_timer = float(_cfg.play.auto_step)
+	_hub.color = SUPER_COLOR if _super_cheat else _cfg.field.hub_color
 
 
 ## Seconds per step: one step shorter every round, down to a floor.

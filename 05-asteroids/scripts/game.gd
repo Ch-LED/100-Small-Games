@@ -60,6 +60,8 @@ var _wave_weight_start := 1.0
 var _wave_pending := false
 
 var _cheat_invincible := false
+## The `]` super cheat: every player shot homes on the nearest rock.
+var _super_cheat := false
 var _debug_on := false
 
 
@@ -124,6 +126,7 @@ func _start_game() -> void:
 	_level = 1
 	_next_extra = int(_cfg.score.extra_life)
 	_cheat_invincible = false
+	_super_cheat = false
 	_wave_pending = false
 	_notice_timer = 0.0
 	_beat_timer = 0.0
@@ -156,6 +159,8 @@ func _process(delta: float) -> void:
 		_debug.enabled = _debug_on
 	if Input.is_action_just_pressed("cheat_toggle"):
 		_toggle_cheat()
+	if Input.is_action_just_pressed("super_cheat_toggle"):
+		_toggle_super_cheat()
 
 	match _state:
 		State.TITLE:
@@ -206,6 +211,31 @@ func _toggle_cheat() -> void:
 	_cheat_invincible = not _cheat_invincible
 	_ship.set_invincible(_cheat_invincible)
 	_show_notice("INVINCIBLE ON" if _cheat_invincible else "INVINCIBLE OFF")
+
+
+## The `]` super cheat. The ship is left alone so this never looks like the
+## invincibility cheat: what changes is the shots, which turn green and steer.
+## Takes effect on the next shot, which is all it needs to say.
+func _toggle_super_cheat() -> void:
+	_super_cheat = not _super_cheat
+	_show_notice("HOMING SHOTS ON" if _super_cheat else "HOMING SHOTS OFF")
+
+
+## What a shot from `from` should aim at: the nearest rock that is still in play,
+## or null when the field is clear. Handed to the bullet as a Callable so the
+## bullet never has to know where the rocks live.
+func _nearest_rock(from: Vector2):
+	var nearest: AsteroidsRock = null
+	var nearest_distance := INF
+	for child in _rocks.get_children():
+		var rock := child as AsteroidsRock
+		if rock == null or rock.is_shattered() or rock.is_queued_for_deletion():
+			continue
+		var distance := from.distance_squared_to(rock.position)
+		if distance < nearest_distance:
+			nearest_distance = distance
+			nearest = rock
+	return null if nearest == null else nearest.position
 
 
 # --- waves ------------------------------------------------------------------
@@ -309,6 +339,8 @@ func _fire_ship_bullet() -> void:
 	bullet.setup(_ship.nose(), _ship.forward(), float(_cfg.bullet.speed), true,
 			float(_cfg.bullet.radius), float(_cfg.bullet.length),
 			float(_cfg.bullet.lifetime), _cfg.field.bullet_color)
+	if _super_cheat:
+		bullet.set_homing(_nearest_rock, float(_cfg.bullet.homing_rate))
 	_audio.play_fire()
 
 
