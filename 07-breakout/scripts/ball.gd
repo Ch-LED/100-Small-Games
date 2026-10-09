@@ -228,15 +228,18 @@ func _clip_axis(origin: float, delta: float, lo: float, hi: float,
 
 ## The direction the ball would leave the paddle with, given where it lands on
 ## it. `jitter` is the random wobble in radians: the real bounce passes a random
-## one, the aim guide passes 0 and lets its fan's spread stand in for it.
+## one, the aim guide passes 0.
 ##
-## Shared by both, so a guide that predicts the bounce can never drift away from
-## the bounce it is predicting.
-func paddle_return_direction(paddle: BreakoutPaddle, jitter: float) -> Vector2:
-	var edge := clampf((position.x - paddle.center_x())
+## `incoming` defaults to the ball's own heading; the guide passes a fixed one
+## instead (see _refresh_aim_guide in game.gd). Shared with everything, so the
+## guide's rays can never drift away from the bounce they describe.
+func paddle_return_direction(paddle: BreakoutPaddle, contact_x: float,
+		jitter: float, incoming := Vector2.ZERO) -> Vector2:
+	var from := velocity if incoming == Vector2.ZERO else incoming
+	var edge := clampf((contact_x - paddle.center_x())
 			/ maxf(paddle.half_width, 0.001), -1.0, 1.0)
 	var tilt: float = float(_cfg.paddle_curve) * edge + jitter
-	var direction := velocity.bounce(Vector2.UP.rotated(tilt))
+	var direction := from.bounce(Vector2.UP.rotated(tilt))
 	# The tilt must never drive the ball back down into the paddle.
 	if direction.y > 0.0:
 		direction.y = -direction.y
@@ -273,7 +276,7 @@ func _bounce(normal: Vector2, target) -> void:
 			# Front face: where it landed on the paddle steers the return angle.
 			var jitter := deg_to_rad(randf_range(
 					-float(_cfg.random_deflect_deg), float(_cfg.random_deflect_deg)))
-			direction = paddle_return_direction(target, jitter)
+			direction = paddle_return_direction(target, position.x, jitter)
 
 	_set_direction(direction)
 
