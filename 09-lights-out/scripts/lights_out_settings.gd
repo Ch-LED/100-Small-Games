@@ -32,6 +32,9 @@ static func load_all() -> Dictionary:
 			"presses_cap": int(file.get_value("play", "presses_cap", 12)),
 			"solve_pause": file.get_value("play", "solve_pause", 1.2),
 		},
+		"cheat": {
+			"auto_press_period": file.get_value("cheat", "auto_press_period", 0.7),
+		},
 		"audio": {
 			"press_tones": _float_array(file, "audio", "press_tones",
 					[392.00, 440.00, 493.88, 523.25, 587.33]),

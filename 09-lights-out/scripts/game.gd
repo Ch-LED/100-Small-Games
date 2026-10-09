@@ -1,7 +1,7 @@
 class_name LightsOutGame
 extends Control
 ## Lights Out controller: input, the press/level loop, the board's rendering, and
-## the two overlay keys.
+## the three cheat/debug keys.
 ##
 ## The board's 25 cells are fixed scene structure arranged by a GridContainer, so
 ## this script never positions anything — a cell is a light, and a press only
@@ -24,6 +24,9 @@ const DEBUG_GAP := 30.0
 @onready var _title: Label = $Overlay/Title
 @onready var _message: Label = $Overlay/Message
 @onready var _audio: LightsOutAudio = $Audio
+## The super cheat reads in the colour it wears in every game of the collection.
+const SUPER_COLOR := Color("00E676")
+
 ## The 25 cells, row-major. Declared explicitly so the scene's structure stays
 ## visible in the script rather than being guessed at.
 @onready var _cells: Array[Panel] = [
@@ -46,6 +49,10 @@ var _level := 1
 var _presses := 0
 var _solved := 0
 var _cheat_hint := false
+## The `]` super cheat: the game presses the shortest solution's next move on a
+## timer, so the board clears itself.
+var _cheat_auto := false
+var _auto_timer := 0.0
 var _debug_on := false
 var _cursor := Vector2i(0, 0)
 var _cursor_visible := false
@@ -56,8 +63,11 @@ var _board_size := Vector2.ZERO
 ## The solver is the most expensive thing here; recompute only after a change.
 var _optimal_cache: Array[int] = []
 var _optimal_dirty := true
-## Which cells the `[` hint is currently marking.
+## Which cells the `[` hint is currently marking, and the single cell the super
+## cheat is about to press. Kept as members rather than locals so what is being
+## highlighted can be read back and checked against the solver.
 var _hint_marks: Array[bool] = []
+var _auto_marks: Array[bool] = []
 
 
 func _ready() -> void:
@@ -110,29 +120,39 @@ func _make_flat(color: Color, radius: int) -> StyleBoxFlat:
 	return style
 
 
-func _style_for(lit: bool, hint: bool, cursor: bool) -> StyleBoxFlat:
-	var key := (1 if lit else 0) | (2 if hint else 0) | (4 if cursor else 0)
+func _style_for(lit: bool, hint: bool, cursor: bool, auto: bool) -> StyleBoxFlat:
+	var key := (1 if lit else 0) | (2 if hint else 0) | (4 if cursor else 0) \
+			| (8 if auto else 0)
 	if _styles.has(key):
 		return _styles[key]
 
 	var style := _make_flat(
 			_cfg.board.on_color if lit else _cfg.board.off_color,
 			int(_cfg.board.corner_radius))
-	if hint or cursor:
+	if hint or cursor or auto:
 		style.set_border_width_all(int(_cfg.board.hint_border))
-		style.border_color = _cfg.board.hint_color if hint else _cfg.board.cursor_color
+		# The cheat outranks the other two: it is the one that is about to act.
+		if auto:
+			style.border_color = SUPER_COLOR
+		else:
+			style.border_color = _cfg.board.hint_color if hint else _cfg.board.cursor_color
 	_styles[key] = style
 	return style
 
 
 func _refresh_board() -> void:
-	# Kept as a member rather than a local so what the hint highlights can be
-	# read back and checked against the solver.
 	_hint_marks.resize(LightsOutGrid.CELLS)
 	_hint_marks.fill(false)
 	if _cheat_hint:
 		for index in _optimal():
 			_hint_marks[int(index)] = true
+
+	# Only the move it is about to make, not the whole solution: the point is to
+	# show what the machine is doing right now.
+	_auto_marks.resize(LightsOutGrid.CELLS)
+	_auto_marks.fill(false)
+	if _cheat_auto and not _optimal().is_empty():
+		_auto_marks[int(_optimal()[0])] = true
 
 	for row in LightsOutGrid.SIZE:
 		for col in LightsOutGrid.SIZE:
@@ -140,7 +160,8 @@ func _refresh_board() -> void:
 			var style := _style_for(
 					_model.get_cell(row, col),
 					_hint_marks[index],
-					_cursor_visible and _cursor == Vector2i(col, row))
+					_cursor_visible and _cursor == Vector2i(col, row),
+					_auto_marks[index])
 			_cells[index].add_theme_stylebox_override("panel", style)
 
 
@@ -163,6 +184,8 @@ func _enter_title() -> void:
 	_presses = 0
 	_solved = 0
 	_cheat_hint = false
+	_cheat_auto = false
+	_auto_timer = 0.0
 	_cursor = Vector2i(0, 0)
 	_cursor_visible = false
 	_model.reset()
@@ -180,6 +203,8 @@ func _start_run() -> void:
 	_presses = 0
 	_solved = 0
 	_cheat_hint = false
+	_cheat_auto = false
+	_auto_timer = 0.0
 	_cursor = Vector2i(0, 0)
 	_cursor_visible = false
 	_notice_timer = 0.0
@@ -262,6 +287,8 @@ func _process(delta: float) -> void:
 		_debug.enabled = _debug_on
 	if Input.is_action_just_pressed("cheat_toggle"):
 		_toggle_hint()
+	if Input.is_action_just_pressed("super_cheat_toggle"):
+		_toggle_super_cheat()
 
 	match _state:
 		State.TITLE:
@@ -269,6 +296,7 @@ func _process(delta: float) -> void:
 				_start_run()
 		State.PLAYING:
 			_tick_notice(delta)
+			_tick_auto(delta)
 		State.SOLVED:
 			_state_timer -= delta
 			if _state_timer <= 0.0:
@@ -345,6 +373,32 @@ func _toggle_hint() -> void:
 	_cheat_hint = not _cheat_hint
 	_refresh_board()
 	_show_notice("SOLUTION ON" if _cheat_hint else "SOLUTION OFF")
+
+
+## The `]` super cheat: the game solves itself. It presses through `_press_cell`,
+## the same door the keyboard and the mouse use, so the lights, the counter and
+## the sounds behave exactly as if a hand had done it.
+func _toggle_super_cheat() -> void:
+	_cheat_auto = not _cheat_auto
+	# Fire at once when switching on, so the effect is not a wait.
+	_auto_timer = 0.0
+	_refresh_board()
+	_show_notice("AUTO SOLVE ON" if _cheat_auto else "AUTO SOLVE OFF")
+
+
+func _tick_auto(delta: float) -> void:
+	if not _cheat_auto:
+		return
+	_auto_timer -= delta
+	if _auto_timer > 0.0:
+		return
+	_auto_timer = float(_cfg.cheat.auto_press_period)
+
+	var moves := _optimal()
+	if moves.is_empty():
+		return
+	var index := int(moves[0])
+	_press_cell(index / LightsOutGrid.SIZE, index % LightsOutGrid.SIZE)
 
 
 func _show_notice(text: String) -> void:

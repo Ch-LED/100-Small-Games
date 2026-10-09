@@ -114,12 +114,18 @@ func restore(snapshot_cells: Array) -> void:
 
 ## Puts a 2 (or, with `four_chance`, a 4) in a random empty cell. Returns the
 ## index used, or -1 when the board is full.
-func spawn(rng: RandomNumberGenerator, four_chance: float) -> int:
+##
+## `forced` overrides the rolled value — the super cheat uses it to hand the
+## player the board's largest tile. At its default the roll is exactly as before.
+func spawn(rng: RandomNumberGenerator, four_chance: float, forced := 0) -> int:
 	var empty := empty_indices()
 	if empty.is_empty():
 		return -1
 	var index: int = empty[rng.randi_range(0, empty.size() - 1)]
-	cells[index] = 4 if rng.randf() < four_chance else 2
+	if forced > 0:
+		cells[index] = forced
+	else:
+		cells[index] = 4 if rng.randf() < four_chance else 2
 	return index
 
 

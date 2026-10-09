@@ -1,12 +1,14 @@
 class_name Game2048Hud
 extends Control
-## Top bar: score, best and the largest tile of this run on the left, and a
-## `NO SPAWN` tag that appears while the cheat is on. The nodes are declared in
-## twenty48.tscn; this script only positions and fills them.
+## Top bar: score, best and the largest tile of this run on the left, and a tag
+## naming whichever cheats are on. The nodes are declared in twenty48.tscn; this
+## script only positions and fills them.
 
 const LABEL_COLOR := Color("8A7F73")
 const VALUE_COLOR := Color("4A423A")
 const CHEAT_COLOR := Color("C2472F")
+## The super cheat reads in the colour it wears in every game of the collection.
+const SUPER_COLOR := Color("00E676")
 
 @onready var _score_label: Label = $ScoreLabel
 @onready var _score_value: Label = $ScoreValue
@@ -68,5 +70,15 @@ func set_max(value: int) -> void:
 	_max_value.text = "%d" % value
 
 
-func set_cheat(on: bool) -> void:
-	_cheat_label.text = "NO SPAWN" if on else ""
+## The tag is the only place either cheat is named, and the two are independent
+## toggles, so it composes from both. The super one takes the colour because it is
+## the one that changes what the game does.
+func set_cheat(no_spawn: bool, max_spawn: bool) -> void:
+	var parts := PackedStringArray()
+	if no_spawn:
+		parts.append("NO SPAWN")
+	if max_spawn:
+		parts.append("MAX SPAWN")
+	_cheat_label.text = " + ".join(parts)
+	_cheat_label.add_theme_color_override("font_color",
+			SUPER_COLOR if max_spawn else CHEAT_COLOR)

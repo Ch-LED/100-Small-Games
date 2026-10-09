@@ -1,7 +1,7 @@
 class_name Twenty48Game
 extends Control
 ## 2048 controller: input, the move/score/spawn loop, the board's rendering, and
-## the two overlay keys.
+## the three cheat/debug keys.
 ##
 ## The board's 16 cells are fixed scene structure arranged by a GridContainer, so
 ## this script never positions anything — it only swaps each cell's style and
@@ -59,6 +59,9 @@ var _score := 0
 var _best := 0
 var _moves := 0
 var _cheat_no_spawn := false
+## The `]` super cheat: every spawned tile is the board's largest, so a slide
+## almost always has something to merge with.
+var _cheat_max_spawn := false
 var _debug_on := false
 var _announced_2048 := false
 var _notice_timer := 0.0
@@ -178,11 +181,12 @@ func _enter_title() -> void:
 	_score = 0
 	_moves = 0
 	_cheat_no_spawn = false
+	_cheat_max_spawn = false
 	_announced_2048 = false
 	_model.reset()
 	_hud.set_score(_score, _best)
 	_hud.set_max(0)
-	_hud.set_cheat(false)
+	_sync_cheat_hud()
 	_title.text = "2048"
 	_message.text = "PRESS SPACE TO START"
 	_refresh_board()
@@ -192,6 +196,7 @@ func _start_run() -> void:
 	_score = 0
 	_moves = 0
 	_cheat_no_spawn = false
+	_cheat_max_spawn = false
 	_announced_2048 = false
 	_notice_timer = 0.0
 	_model.reset()
@@ -200,7 +205,7 @@ func _start_run() -> void:
 
 	_hud.set_score(_score, _best)
 	_hud.set_max(_model.largest())
-	_hud.set_cheat(false)
+	_sync_cheat_hud()
 	_title.text = ""
 	_message.text = ""
 	_audio.play_start()
@@ -242,8 +247,12 @@ func _try_move(direction: int) -> void:
 	_check_finished()
 
 
+## The super cheat hands over the board's own largest tile. On an empty board
+## that is 0, which is exactly the "roll it normally" case, so the opening two
+## tiles are the usual 2s and 4s.
 func _spawn() -> void:
-	_model.spawn(_rng, float(_cfg.board.spawn_four_chance))
+	var forced := _model.largest() if _cheat_max_spawn else 0
+	_model.spawn(_rng, float(_cfg.board.spawn_four_chance), forced)
 
 
 func _add_score(value: int) -> void:
@@ -279,6 +288,8 @@ func _process(delta: float) -> void:
 		_debug.enabled = _debug_on
 	if Input.is_action_just_pressed("cheat_toggle"):
 		_toggle_cheat()
+	if Input.is_action_just_pressed("super_cheat_toggle"):
+		_toggle_super_cheat()
 
 	match _state:
 		State.TITLE, State.OVER:
@@ -304,8 +315,20 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _toggle_cheat() -> void:
 	_cheat_no_spawn = not _cheat_no_spawn
-	_hud.set_cheat(_cheat_no_spawn)
+	_sync_cheat_hud()
 	_show_notice("NO SPAWN ON" if _cheat_no_spawn else "NO SPAWN OFF")
+
+
+## The `]` super cheat: the board keeps being fed its own largest tile, so a
+## merge is nearly always one slide away and 2048 arrives in a hurry.
+func _toggle_super_cheat() -> void:
+	_cheat_max_spawn = not _cheat_max_spawn
+	_sync_cheat_hud()
+	_show_notice("MAX SPAWN ON" if _cheat_max_spawn else "MAX SPAWN OFF")
+
+
+func _sync_cheat_hud() -> void:
+	_hud.set_cheat(_cheat_no_spawn, _cheat_max_spawn)
 
 
 func _show_notice(text: String) -> void:
