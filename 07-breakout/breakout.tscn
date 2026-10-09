@@ -6,7 +6,6 @@
 [ext_resource type="Script" path="res://07-breakout/scripts/breakout_debug.gd" id="4_debug"]
 [ext_resource type="PackedScene" path="res://07-breakout/scenes/paddle.tscn" id="5_paddle"]
 [ext_resource type="PackedScene" path="res://07-breakout/scenes/ball.tscn" id="6_ball"]
-[ext_resource type="Script" path="res://07-breakout/scripts/aim_guide.gd" id="7_aim"]
 
 [node name="Breakout" type="Control"]
 layout_mode = 3
@@ -35,9 +34,6 @@ mouse_filter = 2
 [node name="Paddle" parent="Board" instance=ExtResource("5_paddle")]
 
 [node name="Ball" parent="Board" instance=ExtResource("6_ball")]
-
-[node name="AimGuide" type="Node2D" parent="."]
-script = ExtResource("7_aim")
 
 [node name="DebugDraw" type="Node2D" parent="."]
 script = ExtResource("4_debug")

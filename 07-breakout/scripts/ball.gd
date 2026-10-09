@@ -12,6 +12,8 @@ signal brick_hit(brick: BreakoutBrick)
 signal paddle_hit
 signal wall_hit
 signal lost
+## The swing's retract caught the ball instead of bouncing it.
+signal caught
 
 ## Nudged along the contact normal so the reflected ball does not immediately
 ## re-hit the same face at t = 0.
@@ -33,6 +35,9 @@ var _max_speed := 760.0
 var _attach_offset := 24.0
 var _attached := true
 var _frozen := false
+## Set for the rest of the sweep once the paddle catches the ball: there is
+## nothing left to bounce off, the step is over.
+var _caught_this_step := false
 var _paddle: BreakoutPaddle = null
 var _bricks: Node2D = null
 var _walls: Array[Rect2] = []
@@ -121,6 +126,7 @@ func _physics_process(delta: float) -> void:
 ## leftover distance, until the step is spent or the bounce cap hits.
 func _sweep(step: Vector2) -> void:
 	var remaining := step
+	_caught_this_step = false
 	for _bounce_index in int(_cfg.max_bounces):
 		var hit := _earliest_hit(remaining)
 		if hit.is_empty():
@@ -131,6 +137,8 @@ func _sweep(step: Vector2) -> void:
 		position += remaining * t
 		var leftover := remaining.length() * (1.0 - t)
 		_bounce(normal, hit.target)
+		if _caught_this_step:
+			return
 		position += normal * SEPARATION
 		if leftover < MIN_STEP:
 			return
@@ -226,20 +234,19 @@ func _clip_axis(origin: float, delta: float, lo: float, hi: float,
 	return {"t_near": t_near, "t_far": t_far, "hit_normal": hit_normal}
 
 
-## The direction the ball would leave the paddle with, given where it lands on
-## it. `jitter` is the random wobble in radians: the real bounce passes a random
-## one, the aim guide passes 0.
+## The direction the ball leaves the paddle with, given where on the paddle it
+## landed. `jitter` is the random wobble in radians.
 ##
-## `incoming` defaults to the ball's own heading; the guide passes a fixed one
-## instead (see _refresh_aim_guide in game.gd). Shared with everything, so the
-## guide's rays can never drift away from the bounce they describe.
-func paddle_return_direction(paddle: BreakoutPaddle, contact_x: float,
-		jitter: float, incoming := Vector2.ZERO) -> Vector2:
-	var from := velocity if incoming == Vector2.ZERO else incoming
-	var edge := clampf((contact_x - paddle.center_x())
+## ⚠️ The tilt is applied to the contact NORMAL, and a bounce doubles a normal's
+## tilt, so the outgoing angle off vertical is roughly `2 * paddle_curve * edge`.
+## That factor of two is why the curve has to stay modest: at 0.9 rad the edge
+## would fling the ball past the horizontal entirely, which is what made the
+## paddle feel like a lens rather than a bat (DECISION_LOG 046).
+func paddle_return_direction(paddle: BreakoutPaddle, jitter: float) -> Vector2:
+	var edge := clampf((position.x - paddle.center_x())
 			/ maxf(paddle.half_width, 0.001), -1.0, 1.0)
 	var tilt: float = float(_cfg.paddle_curve) * edge + jitter
-	var direction := from.bounce(Vector2.UP.rotated(tilt))
+	var direction := velocity.bounce(Vector2.UP.rotated(tilt))
 	# The tilt must never drive the ball back down into the paddle.
 	if direction.y > 0.0:
 		direction.y = -direction.y
@@ -247,7 +254,7 @@ func paddle_return_direction(paddle: BreakoutPaddle, contact_x: float,
 
 
 ## Clamps a direction to at least `min_angle_from_horizontal_deg` off the
-## horizontal, keeping both signs. Pure, so the guide can predict with it too.
+## horizontal, keeping both signs.
 ##
 ## A shallow ball can otherwise rattle between the side walls forever without
 ## ever reaching the bricks. (Note this is the mirror image of pong's rule,
@@ -268,15 +275,30 @@ func with_min_angle(direction: Vector2) -> Vector2:
 
 
 func _bounce(normal: Vector2, target) -> void:
+	if target is BreakoutPaddle and (target as BreakoutPaddle).is_retracting():
+		# The retract is a catch, not a bounce: a falling ball becomes one you
+		# can aim again instead of the one that ends the run.
+		attach_to_paddle()
+		_caught_this_step = true
+		caught.emit()
+		return
+
 	var direction := velocity.bounce(normal)
 
 	if target is BreakoutPaddle:
-		_speed = minf(_max_speed, _speed * (1.0 + float(_cfg.speed_boost_per_hit)))
+		var paddle: BreakoutPaddle = target
+		# A swung paddle hits harder than a parked one, and is allowed past the
+		# speed ceiling a parked paddle respects.
+		var swinging := paddle.is_swinging()
+		var boost: float = float(_cfg.swing_boost) if swinging \
+				else 1.0 + float(_cfg.speed_boost_per_hit)
+		var ceiling: float = float(_cfg.swing_max_speed) if swinging else _max_speed
+		_speed = minf(ceiling, _speed * boost)
 		if absf(normal.y) > 0.5:
 			# Front face: where it landed on the paddle steers the return angle.
 			var jitter := deg_to_rad(randf_range(
 					-float(_cfg.random_deflect_deg), float(_cfg.random_deflect_deg)))
-			direction = paddle_return_direction(target, position.x, jitter)
+			direction = paddle_return_direction(paddle, jitter)
 
 	_set_direction(direction)
 

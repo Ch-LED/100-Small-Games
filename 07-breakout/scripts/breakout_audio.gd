@@ -10,6 +10,8 @@ extends Node
 ##   lost     descending cadence
 ##   cleared  rising triad
 ##   launch   soft low blip
+##   swing    fast rising whoosh, cut to the length of the lunge
+##   catch    short rising pair when the retract catches the ball
 
 const MIX_RATE := 22050
 const POOL_SIZE := 8
@@ -23,6 +25,8 @@ var _wall: AudioStreamWAV
 var _lost: AudioStreamWAV
 var _cleared: AudioStreamWAV
 var _launch: AudioStreamWAV
+var _swing: AudioStreamWAV
+var _catch: AudioStreamWAV
 
 
 func _ready() -> void:
@@ -33,6 +37,8 @@ func _ready() -> void:
 	_lost = _cadence([392.0, 330.0, 262.0], 0.13, 0.22)
 	_cleared = _cadence([523.0, 659.0, 784.0], 0.09, 0.20)
 	_launch = _tone(300.0, 0.10, 0.18)
+	_swing = _cadence([659.0, 988.0, 1319.0], 0.035, 0.14)
+	_catch = _cadence([523.0, 784.0], 0.06, 0.18)
 
 	for i in POOL_SIZE:
 		var player := AudioStreamPlayer.new()
@@ -67,6 +73,14 @@ func play_cleared() -> void:
 
 func play_launch() -> void:
 	_play(_launch)
+
+
+func play_swing() -> void:
+	_play(_swing)
+
+
+func play_catch() -> void:
+	_play(_catch)
 
 
 func _play(stream: AudioStreamWAV, pitch := 1.0) -> void:

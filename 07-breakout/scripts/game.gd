@@ -13,7 +13,6 @@ const MESSAGE_FONT_SIZE := 24
 @onready var _bricks: Node2D = $Board/Bricks
 @onready var _paddle: BreakoutPaddle = $Board/Paddle
 @onready var _ball: BreakoutBall = $Board/Ball
-@onready var _aim: BreakoutAimGuide = $AimGuide
 @onready var _debug: BreakoutDebug = $DebugDraw
 @onready var _hud: BreakoutHud = $Hud
 @onready var _message: Label = $Overlay/Message
@@ -55,9 +54,8 @@ func _ready() -> void:
 	_ball.paddle_hit.connect(_on_paddle_hit)
 	_ball.wall_hit.connect(_on_wall_hit)
 	_ball.lost.connect(_on_ball_lost)
+	_ball.caught.connect(_on_ball_caught)
 
-	_aim.configure(float(_cfg.aim_guide.length), _cfg.aim_guide.color,
-			float(_cfg.aim_guide.alpha), float(_cfg.aim_guide.width))
 	_hud.build(_cfg)
 	PixelFont.apply(_message, MESSAGE_FONT_SIZE)
 	_message.add_theme_color_override("font_color", _cfg.field.ball_color)
@@ -223,7 +221,8 @@ func _process(delta: float) -> void:
 			if Input.is_action_just_pressed("fire"):
 				_launch()
 		State.PLAYING:
-			pass
+			if Input.is_action_just_pressed("fire"):
+				_try_swing()
 		State.DYING:
 			_state_timer -= delta
 			if _state_timer <= 0.0:
@@ -233,41 +232,16 @@ func _process(delta: float) -> void:
 			if _state_timer <= 0.0:
 				_after_level_clear()
 
-	_refresh_aim_guide()
 	_refresh_debug()
 
 
-## The legend is anchored to the paddle and says nothing about the ball in
-## flight, so it is the same every frame — that is what keeps it a thing to
-## learn once rather than a readout to keep watching (DECISION_LOG 043).
-##
-## It is shown while the ball is live and put away between balls, so the title
-## and result screens stay clean.
-func _refresh_aim_guide() -> void:
-	if not bool(_cfg.aim_guide.enabled) or not _ball.is_in_play():
-		_aim.enabled = false
-		return
-
-	var rays: Array[Dictionary] = []
-	var count := maxi(2, int(_cfg.aim_guide.rays))
-	var half := _paddle.half_width
-	var top_y := _paddle.position.y - _paddle.half_height
-	var centre := _paddle.center_x()
-	for i in count:
-		# Evenly spaced contact points, from the left shoulder to the right one.
-		var offset := -1.0 + 2.0 * float(i) / float(count - 1)
-		var contact := Vector2(centre + offset * half, top_y)
-		# Straight down, not the ball's heading: the rays describe the paddle,
-		# not this shot. Same function the bounce uses, so they cannot be wrong
-		# about the mapping they are drawing.
-		rays.append({
-			"origin": contact,
-			"direction": _ball.paddle_return_direction(
-					_paddle, contact.x, 0.0, Vector2.DOWN),
-		})
-
-	_aim.enabled = true
-	_aim.set_rays(rays)
+## Swinging is the one thing the player does mid-rally: it both saves a ball
+## heading past the paddle and puts real force behind the return, so it is worth
+## a sound of its own. Idempotent — a swing already running swallows the input,
+## so holding the key is not a free re-swing.
+func _try_swing() -> void:
+	if _paddle.swing():
+		_audio.play_swing()
 
 
 ## Pointer or keys, whichever moved last. A click is handled in _unhandled_input
@@ -308,6 +282,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_start_run()
 		State.READY:
 			_launch()
+		State.PLAYING:
+			_try_swing()
 
 
 func _toggle_cheat() -> void:
@@ -361,6 +337,15 @@ func _on_paddle_hit() -> void:
 
 func _on_wall_hit() -> void:
 	_audio.play_wall()
+
+
+## The retract caught the ball. Back to READY, so it is the player's aim again —
+## the point of the mechanic is that a save costs a life nothing but a re-aim.
+func _on_ball_caught() -> void:
+	if _state != State.PLAYING:
+		return
+	_audio.play_catch()
+	_enter_ready()
 
 
 func _on_ball_lost() -> void:
