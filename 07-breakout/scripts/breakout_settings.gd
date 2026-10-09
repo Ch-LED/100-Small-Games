@@ -41,6 +41,9 @@ static func load_all() -> Dictionary:
 			"max_bounces": int(file.get_value("ball", "max_bounces", 8)),
 			"swing_boost": file.get_value("ball", "swing_boost", 1.35),
 			"swing_max_speed": file.get_value("ball", "swing_max_speed", 920.0),
+			"trail_points": int(file.get_value("ball", "trail_points", 12)),
+			"trail_width": file.get_value("ball", "trail_width", 8.0),
+			"trail_alpha": file.get_value("ball", "trail_alpha", 0.45),
 		},
 		"paddle": {
 			"width": file.get_value("paddle", "width", 140.0),
@@ -52,6 +55,14 @@ static func load_all() -> Dictionary:
 			"swing_lunge_time": file.get_value("paddle", "swing_lunge_time", 0.16),
 			"swing_retract_time": file.get_value("paddle", "swing_retract_time", 0.22),
 			"swing_rise_time": file.get_value("paddle", "swing_rise_time", 0.05),
+		},
+		"shards": {
+			"count": int(file.get_value("shards", "count", 7)),
+			"length": file.get_value("shards", "length", 16.0),
+			"width": file.get_value("shards", "width", 2.0),
+			"speed": file.get_value("shards", "speed", 200.0),
+			"spread_deg": file.get_value("shards", "spread_deg", 16.0),
+			"duration": file.get_value("shards", "duration", 0.34),
 		},
 		"scoring": {
 			"combo_step": int(file.get_value("scoring", "combo_step", 3)),

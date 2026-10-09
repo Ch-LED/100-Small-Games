@@ -31,6 +31,10 @@ mouse_filter = 2
 
 [node name="Bricks" type="Node2D" parent="Board"]
 
+[node name="Trail" type="Line2D" parent="Board"]
+
+[node name="Shards" type="Node2D" parent="Board"]
+
 [node name="Paddle" parent="Board" instance=ExtResource("5_paddle")]
 
 [node name="Ball" parent="Board" instance=ExtResource("6_ball")]

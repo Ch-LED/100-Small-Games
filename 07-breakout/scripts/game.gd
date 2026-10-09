@@ -6,11 +6,14 @@ extends Control
 enum State { TITLE, READY, PLAYING, DYING, LEVEL_CLEAR, OVER }
 
 const BRICK_SCENE := preload("res://07-breakout/scenes/brick.tscn")
+const SHARD_SCENE := preload("res://07-breakout/scenes/shard_burst.tscn")
 const MESSAGE_FONT_SIZE := 24
 
 @onready var _background: ColorRect = $Background
 @onready var _frame: Node2D = $Board/Frame
 @onready var _bricks: Node2D = $Board/Bricks
+@onready var _trail: Line2D = $Board/Trail
+@onready var _shards: Node2D = $Board/Shards
 @onready var _paddle: BreakoutPaddle = $Board/Paddle
 @onready var _ball: BreakoutBall = $Board/Ball
 @onready var _debug: BreakoutDebug = $DebugDraw
@@ -47,6 +50,7 @@ func _ready() -> void:
 
 	_background.color = _cfg.field.bg_color
 	_build_frame()
+	_build_trail()
 
 	_paddle.setup(_cfg.paddle, _cfg.field.paddle_color)
 	_ball.setup(_cfg.ball, _paddle, _bricks, _cfg.field.ball_color)
@@ -85,6 +89,47 @@ func _build_frame() -> void:
 		band.size = rect.size
 		band.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_frame.add_child(band)
+
+
+## The trail hangs off Board, not off the ball: Line2D points are in their own
+## node's space, so a trail parented to the ball would carry its whole history
+## along with it and never show a wake. Board has no transform, so absolute
+## positions can be pushed into it directly.
+func _build_trail() -> void:
+	var tint: Color = _cfg.field.ball_color
+	_trail.clear_points()
+	_trail.width = float(_cfg.ball.trail_width)
+	_trail.default_color = tint
+	var fade := Gradient.new()
+	fade.set_color(0, Color(tint.r, tint.g, tint.b, 0.0))
+	fade.set_color(1, Color(tint.r, tint.g, tint.b, float(_cfg.ball.trail_alpha)))
+	_trail.gradient = fade
+
+
+## Dashed away whenever the ball is not in play, so a launch never draws a line
+## across the board from wherever the last ball died.
+func _refresh_trail() -> void:
+	if _state != State.PLAYING or not _ball.is_in_play():
+		if _trail.get_point_count() > 0:
+			_trail.clear_points()
+		return
+
+	var points := _trail.points
+	points.append(_ball.position)
+	while points.size() > maxi(2, int(_cfg.ball.trail_points)):
+		points.remove_at(0)
+	_trail.points = points
+
+
+## Shards in the brick's own row colour, fanned along the ball's travel.
+func _spawn_shards(brick: BreakoutBrick) -> void:
+	if int(_cfg.shards.count) <= 0:
+		return
+	var burst: BreakoutShards = SHARD_SCENE.instantiate()
+	# Add before setup: setup() drives @onready children (CONSTITUTION 五).
+	_shards.add_child(burst)
+	burst.setup(brick.global_rect().get_center(),
+			_cfg.field.brick_colors[brick.row], _ball.velocity, _cfg.shards)
 
 
 func _build_bricks() -> void:
@@ -232,6 +277,7 @@ func _process(delta: float) -> void:
 			if _state_timer <= 0.0:
 				_after_level_clear()
 
+	_refresh_trail()
 	_refresh_debug()
 
 
@@ -302,6 +348,7 @@ func _on_brick_hit(brick: BreakoutBrick) -> void:
 	_combo += 1
 	var multiplier := _combo_multiplier()
 	_add_score(brick.score * multiplier)
+	_spawn_shards(brick)
 	_audio.play_brick(brick.row, _combo_pitch())
 	_hud.set_combo(_combo, multiplier)
 	if _remaining <= 0:
