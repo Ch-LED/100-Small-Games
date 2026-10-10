@@ -19,9 +19,12 @@ var steering_basis := Basis()
 ## diverges from it once the track banks.
 var surface_normal := Vector3.UP
 
-## True while the race controller judges the ball to be on the road, which is
-## what arms the surface settling below.
-var grounded := false
+## A point on the road's surface directly "under" the ball, and how far the road
+## reaches either side of it. Together with surface_normal this is the whole of
+## the ball's ground: nothing in the physics world holds it up.
+var road_point := Vector3.ZERO
+var road_half_width := 0.0
+var has_road := false
 
 ## True while the level is holding the ball on the start line. The drive is
 ## skipped rather than the body frozen: freeze stops _integrate_forces, and a
@@ -86,8 +89,8 @@ static func _checker_texture(cells: int, light: Color, dark: Color) -> ImageText
 func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 	if _cfg.is_empty() or frozen:
 		return
-	if grounded:
-		_settle_on_surface(state)
+	if has_road:
+		_ride_road(state)
 	var steer := _read_steer()
 	# The brake overrides the drive rather than fighting it. Steering IS the
 	# throttle in this game, so there is no way to ask for both, and a brake
@@ -95,6 +98,8 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 	var braking := Input.is_action_pressed("fire")
 	_apply_resistance(Resistance.BRAKE if braking
 			else (Resistance.DRIVE if steer != Vector2.ZERO else Resistance.COAST))
+	if braking:
+		_brake(state)
 	if braking or steer == Vector2.ZERO:
 		drive_direction = Vector3.ZERO
 	else:
@@ -102,26 +107,66 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 	_clamp_speed(state)
 
 
-## The road is a swept polyline, so every ring joint is a crease: the ball's
-## velocity lies in one facet and then suddenly does not, and the solver
-## answers the mismatch by kicking the ball off the surface. That reads as it
-## stumbling.
+## The road is a reference, not a floor. Nothing in the physics world holds the
+## ball up — the constraint is worked out here, every step, from where the road
+## says its surface is. That is the only way to ride a swept ribbon smoothly:
+## any real collider under the ball has to travel with it, and a collider that
+## travels under a body hands that body either its motion or its penetration.
+## Both were tried against the road, and both read as the ball stumbling.
 ##
-## Only the OUTWARD half of that kick is cancelled. Cancelling both halves was
-## the first attempt and it stopped the ball driving altogether — the normal
-## impulse the solver would have spent pressing the ball onto the road is also
-## the impulse friction is proportional to, so flattening the velocity into the
-## road plane removes the grip along with the jolt. Letting the ball keep
-## pressing in and refusing to let it leave is what removes the stumble and
-## keeps the traction.
+## Taking the ground over means taking friction over with it. Contact friction
+## IS the contact, so with no collider the drive's torque would spin the ball
+## on the spot. The rule is the one Jolt was applying anyway: slip at the
+## contact point is opposed, and no harder than mu * m * g. That cap is the
+## traction limit the whole feel was tuned against, so it is reproduced here
+## rather than reinvented.
+func _ride_road(state: PhysicsDirectBodyState3D) -> void:
+	var offset := state.transform.origin - road_point
+	var above := offset.dot(surface_normal)
+	var in_plane := offset - surface_normal * above
+	if in_plane.length() > road_half_width or above > _cfg.radius:
+		return                       # off the road; nothing below it to hold
+	# Back onto the surface, one radius up.
+	state.transform.origin = road_point + in_plane + surface_normal * float(_cfg.radius)
+	# It may not travel into the road.
+	var sinking := state.linear_velocity.dot(surface_normal)
+	if sinking < 0.0:
+		state.linear_velocity -= surface_normal * sinking
+	_apply_contact_friction(state)
+
+
+func _apply_contact_friction(state: PhysicsDirectBodyState3D) -> void:
+	var radius: float = _cfg.radius
+	var contact := state.transform.origin - surface_normal * radius
+	var arm := contact - state.transform.origin
+	var slip := state.linear_velocity + state.angular_velocity.cross(arm)
+	var tangent := slip - surface_normal * slip.dot(surface_normal)
+	var speed := tangent.length()
+	if speed < 0.0001:
+		return
+	var inertia := 0.4 * mass * radius * radius
+	var grip := 1.0 / (1.0 / mass + radius * radius / inertia)
+	var limit: float = _cfg.friction * mass * state.total_gravity.length() * state.step
+	var impulse := minf(speed * grip, limit)
+	var push := -tangent / speed * impulse
+	state.linear_velocity += push / mass
+	state.angular_velocity += arm.cross(push) / inertia
+
+
+## A constant retarding torque on top of the coasting dampers.
 ##
-## It is still deliberately unphysical: no bounce off the road, ever. Jumping
-## is not in this game, so that is physics it does not want.
-func _settle_on_surface(state: PhysicsDirectBodyState3D) -> void:
-	var velocity := state.linear_velocity
-	var outward := velocity.dot(surface_normal)
-	if outward > 0.0:
-		state.linear_velocity = velocity - surface_normal * outward
+## Damping alone takes away a fixed FRACTION of the spin every second, so it
+## bites hardest the instant you press and hardly at all by the end — the
+## opposite of what a brake should feel like. A constant torque takes away a
+## fixed AMOUNT, so the same effort becomes a larger share of what is left as
+## the ball slows, and the last of the speed goes quickly.
+func _brake(state: PhysicsDirectBodyState3D) -> void:
+	var spin := state.angular_velocity
+	# Below this the torque would be able to turn the spin around inside one
+	# step, and the ball would rock instead of stopping.
+	if spin.length() < float(_cfg.brake_min_spin):
+		return
+	state.apply_torque(-spin.normalized() * float(_cfg.brake_torque))
 
 
 func _drive(state: PhysicsDirectBodyState3D, steer: Vector2) -> void:
@@ -168,8 +213,10 @@ func _apply_resistance(level: Resistance) -> void:
 			linear_damp = float(_cfg.linear_damp_active)
 			angular_damp = float(_cfg.angular_damp_active)
 		Resistance.BRAKE:
-			linear_damp = float(_cfg.brake_linear_damp)
-			angular_damp = float(_cfg.brake_angular_damp)
+			# The brake's own work is the torque; the dampers stay at their
+			# coasting values so the two do not stack into a wall.
+			linear_damp = float(_cfg.linear_damp)
+			angular_damp = float(_cfg.angular_damp)
 		_:
 			linear_damp = float(_cfg.linear_damp)
 			angular_damp = float(_cfg.angular_damp)

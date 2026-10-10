@@ -14,7 +14,6 @@ var _cfg: Dictionary = {}
 var _start_point := Vector3.ZERO
 var _fall_y := -1000.0
 var _align_distance := 8.0
-var _glue_distance := 1.2
 var _finish_t := 1.0
 var _restart_delay := 1.1
 var _finish_pause := 2.2
@@ -35,7 +34,7 @@ func _ready() -> void:
 			+ Vector3(0.0, float(_cfg.ball.radius) + 0.6, 0.0)
 	_fall_y = _track.lowest_point() - float(_cfg.play.fall_margin)
 	_align_distance = float(_cfg.camera.align_distance)
-	_glue_distance = float(_cfg.ball.ground_glue_distance)
+	_ball.road_half_width = float(_cfg.track.half_width)
 	_finish_t = float(_cfg.track.finish_t)
 	_restart_delay = float(_cfg.play.restart_delay)
 	_finish_pause = float(_cfg.play.finish_pause)
@@ -49,10 +48,11 @@ func _physics_process(delta: float) -> void:
 	var road := _track.frame_near(_ball.global_position)
 	var up: Vector3 = road.basis.y
 	_ball.surface_normal = up
+	_ball.road_point = road.origin
+	_ball.has_road = true
 	_ball.steering_basis = _camera_rig.get_steering_basis()
 	var to_road := _ball.global_position.distance_to(road.origin)
 	_camera_rig.aim_up(up if to_road < _align_distance else Vector3.UP)
-	_ball.grounded = bool(_cfg.ball.ground_glue) and to_road < _glue_distance
 	_advance(delta)
 
 
@@ -133,6 +133,8 @@ func _enter_finished() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("debug_toggle"):
+		_track.toggle_debug()
 	if event.is_action_pressed("ui_cancel"):
 		# Sandbox-only: there is no menu to go back to yet. Phase 3 replaces
 		# this with the pause menu (spec 11).
