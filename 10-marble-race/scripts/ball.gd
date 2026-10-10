@@ -3,8 +3,8 @@ extends RigidBody3D
 ## Rolling ball. The drive is real torque — Jolt integrates the spin and
 ## contact friction turns it into motion (DECISION_LOG 055).
 ##
-## Steering axis is up x direction, which is the axis a ball rolling that way
-## would spin about (technical spec 4.3).
+## Steering axis is the surface normal x the drive direction, which is the axis
+## a ball rolling that way would spin about (technical spec 4.3).
 
 @onready var _mesh: MeshInstance3D = $Mesh
 @onready var _shape: CollisionShape3D = $Shape
@@ -13,6 +13,11 @@ extends RigidBody3D
 ## refreshes it every physics frame; identity means world axes, which is what
 ## the headless probe relies on.
 var steering_basis := Basis()
+
+## Up direction of the surface the ball is on. The race controller refreshes it
+## from the track each physics frame. Flat road gives world up, so this only
+## diverges from it once the track banks.
+var surface_normal := Vector3.UP
 
 ## Last commanded drive direction, world space, for diagnostics and probes.
 var drive_direction := Vector3.ZERO
@@ -78,7 +83,7 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 
 func _drive(state: PhysicsDirectBodyState3D, steer: Vector2) -> void:
 	drive_direction = (steering_basis * Vector3(steer.x, 0.0, steer.y)).normalized()
-	var axis := Vector3.UP.cross(drive_direction)
+	var axis := surface_normal.cross(drive_direction)
 	if axis.length_squared() < 0.000001:
 		return
 	var torque: float = _cfg.spin_torque * _turn_boost(state.linear_velocity)

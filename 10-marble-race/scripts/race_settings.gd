@@ -38,4 +38,18 @@ static func load_all() -> Dictionary:
 		"play": {
 			"fall_margin": file.get_value("play", "fall_margin", 8.0),
 		},
+		"track": {
+			"half_width": file.get_value("track", "half_width", 3.0),
+			"thickness": file.get_value("track", "thickness", 0.6),
+			"samples": int(file.get_value("track", "samples", 48)),
+			"color": _color(file, "track", "color", Color("2A3346")),
+		},
 	}
+
+
+static func _color(file: ConfigFile, section: String, key: String,
+		fallback: Color = Color.WHITE) -> Color:
+	var value: Variant = file.get_value(section, key, "")
+	if value is String and Color.html_is_valid(value):
+		return Color.html(value)
+	return fallback
