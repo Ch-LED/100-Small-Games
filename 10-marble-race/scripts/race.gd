@@ -16,6 +16,7 @@ enum State { READY, RUNNING, FALLEN, FINISHED }
 @onready var _camera_rig: MarbleCameraRig = $CameraRig
 @onready var _track: RaceTrackPath = $Track
 @onready var _hud: MarbleHud = $Hud
+@onready var _pause: MarblePauseMenu = $PauseMenu
 
 ## Set by the root before this node enters the tree.
 var track_id := ""
@@ -44,6 +45,10 @@ func _ready() -> void:
 	_camera_rig.configure(_cfg, _ball)
 	_ball.configure(_cfg)
 	_hud.configure(_cfg)
+	_pause.configure(_cfg)
+	_pause.resume_pressed.connect(_close_pause)
+	_pause.restart_pressed.connect(_restart_from_pause)
+	_pause.levels_pressed.connect(_leave_for_levels)
 	_start_point = _track.start_point() \
 			+ Vector3(0.0, float(_cfg.ball.radius) + 0.6, 0.0)
 	_fall_y = _track.lowest_point() - float(_cfg.play.fall_margin)
@@ -62,6 +67,9 @@ func _exit_tree() -> void:
 	# mouse-driven, so letting go of it here is what stops the player being
 	# stranded with an invisible cursor in the track list.
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	# Leaving a level is always a way out of a pause: a tree left paused with
+	# nothing on screen to unpause it is a hung game.
+	get_tree().paused = false
 
 
 func _physics_process(delta: float) -> void:
@@ -150,6 +158,34 @@ func _start_requested() -> bool:
 	return false
 
 
+## Esc opens the pause menu while a run is on. Before the run starts there is
+## nothing to pause, so it steps back out to the track list instead — the same
+## place the pause menu's own third option goes.
+func _open_pause() -> void:
+	if _state != State.RUNNING or _pause.visible:
+		back_pressed.emit()
+		return
+	_pause.visible = true
+	get_tree().paused = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+func _close_pause() -> void:
+	_pause.visible = false
+	get_tree().paused = false
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+func _restart_from_pause() -> void:
+	_close_pause()
+	_enter_ready()
+
+
+func _leave_for_levels() -> void:
+	_close_pause()
+	back_pressed.emit()
+
+
 func _enter_ready() -> void:
 	_state = State.READY
 	# Cheats reset with the run, the way they do in every other game here.
@@ -199,4 +235,4 @@ func _unhandled_input(event: InputEvent) -> void:
 		_super = not _super
 		_apply_cheats()
 	if event.is_action_pressed("ui_cancel"):
-		back_pressed.emit()
+		_open_pause()

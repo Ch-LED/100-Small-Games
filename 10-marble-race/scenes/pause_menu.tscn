@@ -1,0 +1,72 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://10-marble-race/scripts/pause_menu.gd" id="1_pause"]
+
+[node name="PauseMenu" type="CanvasLayer"]
+layer = 2
+process_mode = 3
+script = ExtResource("1_pause")
+
+[node name="Dim" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.03, 0.04, 0.06, 0.78)
+
+[node name="Panel" type="Control" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Title" type="Label" parent="Panel"]
+layout_mode = 0
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -420.0
+offset_top = 190.0
+offset_right = 420.0
+offset_bottom = 260.0
+grow_horizontal = 2
+mouse_filter = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+text = "PAUSED"
+
+[node name="Resume" type="Button" parent="Panel"]
+layout_mode = 0
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -190.0
+offset_top = 330.0
+offset_right = 190.0
+offset_bottom = 392.0
+grow_horizontal = 2
+text = "RESUME"
+
+[node name="Restart" type="Button" parent="Panel"]
+layout_mode = 0
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -190.0
+offset_top = 412.0
+offset_right = 190.0
+offset_bottom = 474.0
+grow_horizontal = 2
+text = "RESTART"
+
+[node name="Levels" type="Button" parent="Panel"]
+layout_mode = 0
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -190.0
+offset_top = 494.0
+offset_right = 190.0
+offset_bottom = 556.0
+grow_horizontal = 2
+text = "LEVEL SELECT"

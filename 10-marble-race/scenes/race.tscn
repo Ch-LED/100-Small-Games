@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://10-marble-race/scripts/track.gd" id="4_track"]
 [ext_resource type="Curve3D" path="res://10-marble-race/resources/tracks/track_01.tres" id="5_curve"]
 [ext_resource type="PackedScene" path="res://10-marble-race/scenes/hud.tscn" id="6_hud"]
+[ext_resource type="PackedScene" path="res://10-marble-race/scenes/pause_menu.tscn" id="7_pause"]
 [ext_resource type="Script" path="res://10-marble-race/scripts/track_wall.gd" id="7_wall"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_1"]
@@ -99,3 +100,6 @@ current = true
 far = 300.0
 
 [node name="Hud" parent="." instance=ExtResource("6_hud")]
+
+[node name="PauseMenu" parent="." instance=ExtResource("7_pause")]
+visible = false
