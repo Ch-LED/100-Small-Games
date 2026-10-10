@@ -9,6 +9,7 @@ extends Node3D
 
 var _cfg: Dictionary = {}
 var _fall_y := -1000.0
+var _align_distance := 8.0
 
 
 func _ready() -> void:
@@ -19,14 +20,22 @@ func _ready() -> void:
 	_camera_rig.configure(_cfg, _ball)
 	_ball.configure(_cfg)
 	_fall_y = _track.lowest_point() - float(_cfg.play.fall_margin)
+	_align_distance = float(_cfg.camera.align_distance)
 	_respawn()
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
 func _physics_process(_delta: float) -> void:
+	# One lookup of the road, feeding both things that need its plane: the
+	# ball's roll axis and the camera's pitch clamp.
 	var road := _track.frame_near(_ball.global_position)
-	_ball.surface_normal = road.basis.y
+	var up: Vector3 = road.basis.y
+	_ball.surface_normal = up
 	_ball.steering_basis = _camera_rig.get_steering_basis()
+	var to_road := _ball.global_position.distance_to(road.origin)
+	_camera_rig.aim_up(up if to_road < _align_distance else Vector3.UP)
+	_ball.grounded = bool(_cfg.ball.ground_glue) \
+			and to_road < float(_cfg.ball.ground_glue_distance)
 	if _ball.global_position.y < _fall_y:
 		_respawn()
 

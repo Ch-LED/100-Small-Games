@@ -19,6 +19,10 @@ var steering_basis := Basis()
 ## diverges from it once the track banks.
 var surface_normal := Vector3.UP
 
+## True while the race controller judges the ball to be on the road, which is
+## what arms the surface settling below.
+var grounded := false
+
 ## Last commanded drive direction, world space, for diagnostics and probes.
 var drive_direction := Vector3.ZERO
 
@@ -72,6 +76,8 @@ static func _checker_texture(cells: int, light: Color, dark: Color) -> ImageText
 func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 	if _cfg.is_empty():
 		return
+	if grounded:
+		_settle_on_surface(state)
 	var steer := _read_steer()
 	_set_resistance(steer != Vector2.ZERO)
 	if steer == Vector2.ZERO:
@@ -81,8 +87,38 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 	_clamp_speed(state)
 
 
+## The road is a swept polyline, so every ring joint is a crease: the ball's
+## velocity lies in one facet and then suddenly does not, and the solver
+## answers the mismatch by kicking the ball off the surface. That reads as it
+## stumbling.
+##
+## Only the OUTWARD half of that kick is cancelled. Cancelling both halves was
+## the first attempt and it stopped the ball driving altogether — the normal
+## impulse the solver would have spent pressing the ball onto the road is also
+## the impulse friction is proportional to, so flattening the velocity into the
+## road plane removes the grip along with the jolt. Letting the ball keep
+## pressing in and refusing to let it leave is what removes the stumble and
+## keeps the traction.
+##
+## It is still deliberately unphysical: no bounce off the road, ever. Jumping
+## is not in this game, so that is physics it does not want.
+func _settle_on_surface(state: PhysicsDirectBodyState3D) -> void:
+	var velocity := state.linear_velocity
+	var outward := velocity.dot(surface_normal)
+	if outward > 0.0:
+		state.linear_velocity = velocity - surface_normal * outward
+
+
 func _drive(state: PhysicsDirectBodyState3D, steer: Vector2) -> void:
-	drive_direction = (steering_basis * Vector3(steer.x, 0.0, steer.y)).normalized()
+	var aimed := (steering_basis * Vector3(steer.x, 0.0, steer.y)).normalized()
+	# Steering arrives in a plane perpendicular to world up, which stops being
+	# the road's plane the moment the road banks. Projecting it onto the road
+	# is what keeps a banked corner steering where it looks like it should.
+	var in_plane := aimed - surface_normal * aimed.dot(surface_normal)
+	if in_plane.length_squared() < 0.000001:
+		drive_direction = Vector3.ZERO
+		return
+	drive_direction = in_plane.normalized()
 	var axis := surface_normal.cross(drive_direction)
 	if axis.length_squared() < 0.000001:
 		return
