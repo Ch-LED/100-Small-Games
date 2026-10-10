@@ -107,6 +107,11 @@ func frame_near(point: Vector3) -> Transform3D:
 	var length := curve.get_baked_length()
 	var offset := curve.get_closest_offset(to_local(point))
 	var local := curve.sample_baked_with_rotation(offset, false, true)
+	# Orthonormalised once, here, at the source. Curve3D samples a basis that is
+	# unit length only to within a rounding error, and everything downstream —
+	# the bank, the camera's plane, the ] flight axes — uses these vectors as
+	# rotation axes, which Godot refuses unless they are exactly unit length.
+	local.basis = local.basis.orthonormalized()
 	return global_transform * _banked(local, offset, length)
 
 
@@ -193,7 +198,11 @@ func _banked(frame: Transform3D, offset: float, length: float) -> Transform3D:
 	if is_zero_approx(bank):
 		return frame
 	var rolled := frame
-	rolled.basis = frame.basis.rotated(frame.basis.z, deg_to_rad(bank))
+	# The axis has to be normalized: Curve3D's sampled basis is orthonormal to
+	# within a rounding error, and Basis.rotated() refuses anything that is not
+	# unit length. It only ever bit on banked stretches, because a straight has
+	# no bank and never reaches this line.
+	rolled.basis = frame.basis.rotated(frame.basis.z.normalized(), deg_to_rad(bank))
 	return rolled
 
 

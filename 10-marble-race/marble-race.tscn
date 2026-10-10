@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://10-marble-race/scripts/race_root.gd" id="1_root"]
+
+[node name="MarbleRace" type="Node"]
+script = ExtResource("1_root")
+
+[node name="Stage" type="Node" parent="."]

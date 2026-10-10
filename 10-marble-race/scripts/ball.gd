@@ -34,10 +34,25 @@ var frozen := false
 ## Last commanded drive direction, world space, for diagnostics and probes.
 var drive_direction := Vector3.ZERO
 
+## The one colour every game in this project marks the super cheat with. A
+## constant rather than a config value, so it cannot drift game to game.
+const SUPER_COLOR := Color("00E676")
+
+## The [cheat] section, handed over by the level. The cheat numbers do not
+## live in this script's own config dictionary, and duplicating them would mean
+## two places to change one value.
+var cheat: Dictionary = {}
+## [ -- the air wall along the road's edge.
+var edge_field := false
+## The camera's own axes, for ] flight to push along.
+var look_basis := Basis()
+
+var _super := false
+
 ## How hard the ball is being held back. All three are the same pair of damping
 ## values, just chosen differently; there is no separate brake force, because
 ## on a rolling ball the dampers ARE the brake.
-enum Resistance { COAST, DRIVE, BRAKE }
+enum Resistance { COAST, DRIVE, BRAKE, FLIGHT }
 
 var _cfg: Dictionary = {}
 var _resistance := Resistance.COAST
@@ -70,9 +85,23 @@ func configure(settings: Dictionary) -> void:
 
 ## A plain sphere looks identical at every rotation, and the spin is this
 ## game's entire input — the pattern is the only way to read it back.
+## Takeover is marked on the ball, because the ball is what is being taken
+## over. The pattern stays: a solid green sphere would hide the spin, and the
+## spin is still how the ball is being driven.
+func set_super(on: bool) -> void:
+	if on == _super:
+		return
+	_super = on
+	_mesh.material_override = _patterned_material()
+	# Weightless while flying. Without this the ball only glides: every push
+	# forward is spending itself holding altitude.
+	gravity_scale = 0.0 if on else float(_cfg.gravity_scale)
+
+
 func _patterned_material() -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
-	material.albedo_texture = _checker_texture(6, Color("F2F5F7"), Color("FF6D00"))
+	material.albedo_texture = _checker_texture(6, Color("F2F5F7"),
+			SUPER_COLOR if _super else Color("FF6D00"))
 	material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	material.roughness = 0.55
 	return material
@@ -89,13 +118,16 @@ static func _checker_texture(cells: int, light: Color, dark: Color) -> ImageText
 func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 	if _cfg.is_empty() or frozen:
 		return
+	var steer := _read_steer()
+	if _super:
+		_fly(state, steer)
+		return
 	if has_road:
 		_ride_road(state)
-	var steer := _read_steer()
-	# The brake overrides the drive rather than fighting it. Steering IS the
-	# throttle in this game, so there is no way to ask for both, and a brake
-	# that loses to a held accelerator is not a brake.
 	var braking := Input.is_action_pressed("fire")
+	# The brake overrides the drive rather than fighting it: steering IS the
+	# throttle here, so both cannot be asked for at once, and a brake that
+	# loses to a held accelerator is not a brake.
 	_apply_resistance(Resistance.BRAKE if braking
 			else (Resistance.DRIVE if steer != Vector2.ZERO else Resistance.COAST))
 	if braking:
@@ -105,6 +137,46 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 	else:
 		_drive(state, steer)
 	_clamp_speed(state)
+
+
+## ] -- flight. The arrow keys push the ball rather than spinning it, and the
+## dampers go right up, so it drifts to a stop instead of accelerating away.
+##
+## Direction comes from the camera's own axes, pitch included, so aiming the
+## camera up and pressing forward climbs. A yaw-only plane can only ever push
+## the ball sideways, and flight that cannot climb is not flight.
+##
+## The road lets go entirely while this is on: this is the one cheat here that
+## is allowed to simply remove the problem rather than help with it.
+func _fly(state: PhysicsDirectBodyState3D, steer: Vector2) -> void:
+	_apply_resistance(Resistance.FLIGHT)
+	if Input.is_action_pressed("fire"):
+		# Space in flight cancels the momentum outright. Braking the spin is
+		# what a rolling ball does, and it cannot stop one quickly: friction is
+		# what couples the two, and friction is capped. Flying there is nothing
+		# to couple through, so the velocity is taken directly.
+		state.linear_velocity *= exp(-float(cheat.flight_brake_bleed) * state.step)
+		drive_direction = Vector3.ZERO
+		return
+	if steer == Vector2.ZERO:
+		drive_direction = Vector3.ZERO
+		return
+	# steer.y is -1 for forward, and a camera looks down its own -Z, so forward
+	# is +steer.y along the basis' z. Getting this sign wrong sends the ball
+	# backwards, off the start of the track.
+	var aimed := steer.x * look_basis.x + steer.y * look_basis.z
+	if aimed.length_squared() < 0.000001:
+		drive_direction = Vector3.ZERO
+		return
+	drive_direction = aimed.normalized()
+	state.apply_central_force(drive_direction * float(cheat.flight_thrust))
+	# Flight gets its own, much higher ceiling. The ground's cap is tuned to
+	# what a rolling ball can hold on a corner; a flying one has no corner to
+	# hold, and sharing the number would make flight the slow way to travel.
+	var cap: float = cheat.flight_max_speed
+	var velocity := state.linear_velocity
+	if velocity.length() > cap:
+		state.linear_velocity = velocity.normalized() * cap
 
 
 ## The road is a reference, not a floor. Nothing in the physics world holds the
@@ -124,8 +196,21 @@ func _ride_road(state: PhysicsDirectBodyState3D) -> void:
 	var offset := state.transform.origin - road_point
 	var above := offset.dot(surface_normal)
 	var in_plane := offset - surface_normal * above
-	if in_plane.length() > road_half_width or above > _cfg.radius:
-		return                       # off the road; nothing below it to hold
+	var lateral := in_plane.length()
+	if above > _cfg.radius:
+		return                       # clear of the road altogether
+	if not edge_field and lateral > road_half_width:
+		return                       # off the edge, and nothing there to stop it
+	if edge_field and lateral > 0.0001:
+		# [ -- the air wall. A push back toward the centreline that grows the
+		# closer the ball gets to the edge. The support below also continues
+		# past the edge while this is on, because a wall with a way around it
+		# is not a wall.
+		var depth: float = cheat.edge_field_depth
+		var gap := road_half_width - lateral
+		if gap < depth:
+			var force: float = cheat.edge_field_strength * (1.0 - maxf(gap, 0.0) / depth)
+			state.apply_central_force(-in_plane.normalized() * force)
 	# Back onto the surface, one radius up.
 	state.transform.origin = road_point + in_plane + surface_normal * float(_cfg.radius)
 	# It may not travel into the road.
@@ -162,15 +247,23 @@ func _apply_contact_friction(state: PhysicsDirectBodyState3D) -> void:
 ## the ball slows, and the last of the speed goes quickly.
 func _brake(state: PhysicsDirectBodyState3D) -> void:
 	var spin := state.angular_velocity
-	# Below this the torque would be able to turn the spin around inside one
-	# step, and the ball would rock instead of stopping.
-	if spin.length() < float(_cfg.brake_min_spin):
+	var rate := spin.length()
+	if rate < float(_cfg.brake_min_spin):
 		return
-	state.apply_torque(-spin.normalized() * float(_cfg.brake_torque))
+	# Never more than it takes to stop it dead this step. Without the clamp a
+	# brake strong enough to stop the ball quickly would turn the spin around
+	# inside a single step and leave it rocking instead.
+	var inertia := 0.4 * mass * float(_cfg.radius) * float(_cfg.radius)
+	var stopping := rate * inertia / state.step
+	var torque: float = minf(float(_cfg.brake_torque), stopping)
+	state.apply_torque(-spin.normalized() * torque)
 
 
 func _drive(state: PhysicsDirectBodyState3D, steer: Vector2) -> void:
-	var aimed := (steering_basis * Vector3(steer.x, 0.0, steer.y)).normalized()
+	_apply_drive(state, (steering_basis * Vector3(steer.x, 0.0, steer.y)).normalized())
+
+
+func _apply_drive(state: PhysicsDirectBodyState3D, aimed: Vector3) -> void:
 	# Steering arrives in a plane perpendicular to world up, which stops being
 	# the road's plane the moment the road banks. Projecting it onto the road
 	# is what keeps a banked corner steering where it looks like it should.
@@ -217,6 +310,9 @@ func _apply_resistance(level: Resistance) -> void:
 			# coasting values so the two do not stack into a wall.
 			linear_damp = float(_cfg.linear_damp)
 			angular_damp = float(_cfg.angular_damp)
+		Resistance.FLIGHT:
+			linear_damp = float(cheat.flight_linear_damp)
+			angular_damp = float(cheat.flight_angular_damp)
 		_:
 			linear_damp = float(_cfg.linear_damp)
 			angular_damp = float(_cfg.angular_damp)

@@ -11,6 +11,9 @@ var _yaw := 0.0
 var _pitch := 0.0
 var _up := Vector3.UP
 var _wanted_up := Vector3.UP
+## While the ] flight mode is on the pitch limit comes off, so the view — and
+## with it the direction the ball is pushed — can point anywhere.
+var _free_look := false
 
 
 func configure(settings: Dictionary, target: Node3D) -> void:
@@ -22,13 +25,24 @@ func configure(settings: Dictionary, target: Node3D) -> void:
 ## The plane the camera works in: the road's normal while the ball is on the
 ## road, world up otherwise. Refreshed by the race controller every frame.
 func aim_up(up: Vector3) -> void:
-	_wanted_up = up
+	_wanted_up = up.normalized()
 
 
 ## Steering resolves in a yaw-only basis so that where the camera happens to be
 ## pitched never changes which way the ball goes (spec 6).
 func get_steering_basis() -> Basis:
 	return Basis(_up, _yaw)
+
+
+func set_free_look(on: bool) -> void:
+	_free_look = on
+
+
+## The camera's own axes, pitch and all. The ] flight mode steers with these
+## rather than with get_steering_basis(): a yaw-only basis can only ever push
+## the ball sideways, and flight that cannot climb is not flight.
+func get_look_basis() -> Basis:
+	return global_transform.basis
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -40,9 +54,13 @@ func _unhandled_input(event: InputEvent) -> void:
 	var sensitivity: float = _cfg.mouse_sensitivity
 	_yaw -= motion.relative.x * sensitivity
 	_pitch += motion.relative.y * sensitivity
-	_pitch = clampf(_pitch,
-			deg_to_rad(float(_cfg.pitch_min)),
-			deg_to_rad(float(_cfg.pitch_max)))
+	if _free_look:
+		var limit := deg_to_rad(89.0)
+		_pitch = clampf(_pitch, -limit, limit)
+	else:
+		_pitch = clampf(_pitch,
+				deg_to_rad(float(_cfg.pitch_min)),
+				deg_to_rad(float(_cfg.pitch_max)))
 
 
 func _physics_process(delta: float) -> void:
@@ -56,5 +74,26 @@ func _physics_process(delta: float) -> void:
 	var focus := _target.global_position + _up * float(_cfg.look_height)
 	var desired := focus + _up * float(_cfg.height) + Basis(_up, _yaw) * pitched
 	global_position = global_position.lerp(desired, 1.0 - exp(-float(_cfg.follow_damp) * delta))
-	if global_position.distance_squared_to(focus) > 0.0001:
-		look_at(focus, _up)
+	_aim_at(focus)
+
+
+## Built rather than delegated to look_at().
+##
+## When the view direction comes out nearly parallel to the up vector,
+## look_at() rotates the up vector about the view direction — and it hands that
+## vector over unnormalised, which Godot warns about once a frame. It is not a
+## rare corner: ] flight lets the player pitch the camera almost straight up or
+## down, which is exactly that case, and looking up is how the ball climbs.
+##
+## Here both vectors used are normalised before they go anywhere, and the
+## degenerate case simply leaves the camera pointing where it was.
+func _aim_at(focus: Vector3) -> void:
+	var back := global_position - focus
+	if back.length_squared() < 0.0001:
+		return
+	var z := back.normalized()
+	var x := _up.cross(z)
+	if x.length_squared() < 0.000001:
+		return
+	var x_unit := x.normalized()
+	global_transform.basis = Basis(x_unit, z.cross(x_unit), z)
