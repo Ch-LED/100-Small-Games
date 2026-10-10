@@ -7,9 +7,6 @@ extends Path3D
 @onready var _mesh_instance: MeshInstance3D = $Mesh
 @onready var _shape: CollisionShape3D = $Body/Shape
 
-## Cross-section corners, in the curve's local frame: X is lateral, Y is up.
-## Four of them, so the road is a solid slab rather than a surface — a
-## zero-thickness shell is something a fast ball slides straight through.
 ## Half the distance the bank's curvature is measured over, in metres. A
 ## Catmull-Rom curve through sparse waypoints has curvature that swings hard
 ## from point to point, and a bank that tracks it exactly twists the road
@@ -17,6 +14,9 @@ extends Path3D
 ## is what turns that into a ramp the ball can actually feel as a corner.
 const BANK_STEP := 8.0
 
+## Cross-section corners, in the curve's local frame: X is lateral, Y is up.
+## Four of them, so the road is a solid slab rather than a surface — a
+## zero-thickness shell is something a fast ball slides straight through.
 const PROFILE: Array[Vector3] = [
 	Vector3(-1.0, 0.0, 0.0),
 	Vector3(1.0, 0.0, 0.0),
@@ -26,26 +26,44 @@ const PROFILE: Array[Vector3] = [
 
 var _half_width := 3.0
 var _thickness := 0.6
-var _samples := 48
-var _color := Color("2A3346")
+var _samples := 160
+var _road_color := Color("2A3346")
 var _bank_max := 12.0
 var _full_bank_radius := 40.0
 var _bank_deadband := 1.5
+var _start_t := 0.02
+var _finish_t := 0.97
+var _marker_span := 0.012
+var _start_color := Color("4BD3FF")
+var _finish_color := Color("FFD24A")
 
 
 func configure(settings: Dictionary) -> void:
 	_half_width = settings.track.half_width
 	_thickness = settings.track.thickness
 	_samples = settings.track.samples
-	_color = settings.track.color
+	_road_color = settings.track.color
 	_bank_max = settings.track.bank_max
 	_full_bank_radius = settings.track.full_bank_radius
 	_bank_deadband = settings.track.bank_deadband
+	_start_t = settings.track.start_t
+	_finish_t = settings.track.finish_t
+	_marker_span = settings.track.marker_span
+	_start_color = settings.track.start_color
+	_finish_color = settings.track.finish_color
 	_build()
 
 
 func start_point() -> Vector3:
 	return to_global(curve.sample_baked(0.0)) if curve != null else global_position
+
+
+## How far along the road a point is, 0 at the start and 1 at the end. This is
+## the whole of the finish line: no trigger volume, just where the ball is.
+func progress_at(point: Vector3) -> float:
+	if curve == null:
+		return 0.0
+	return curve.get_closest_offset(to_local(point)) / curve.get_baked_length()
 
 
 ## Lowest baked point of the road, so the ball can be judged fallen relative to
@@ -61,8 +79,8 @@ func lowest_point() -> float:
 
 
 ## The curve frame nearest a world point, with the curve's tilt applied. Its Y
-## is the road's up — which the ball rolls about, and which the camera will
-## clamp its pitch against once the track banks.
+## is the road's up — which the ball rolls about, and which the camera clamps
+## its pitch against once the track banks.
 ##
 ## get_closest_offset is unambiguous only while the road never passes near
 ## itself; a track that crosses or loops back will need something better.
@@ -83,10 +101,11 @@ func _build() -> void:
 	if rings.size() < 2:
 		push_error("RaceTrackPath: curve produced fewer than two rings")
 		return
-	var triangles := _triangles(rings)
-	_mesh_instance.mesh = _mesh_from(triangles)
+	_mesh_instance.mesh = _mesh_from(rings)
 	_mesh_instance.material_override = _road_material()
-	_shape.shape = _shape_from(triangles)
+	# The collision is taken from the mesh rather than swept a second time, so
+	# the road the ball rolls on and the road it is drawn against cannot drift.
+	_shape.shape = _shape_from(_mesh_instance.mesh.get_faces())
 
 
 func _sample_rings() -> Array:
@@ -152,61 +171,67 @@ func _ring(frame: Transform3D) -> PackedVector3Array:
 	return ring
 
 
-func _triangles(rings: Array) -> PackedVector3Array:
-	var out := PackedVector3Array()
+## Start and finish are painted into the road's own vertex colours rather than
+## built as separate meshes or trigger volumes: a band of rings takes the
+## marker colour, everything else the road colour, and nothing new has to be
+## kept in step with the sweep.
+func _ring_color(index: int) -> Color:
+	var along := float(index) / float(_samples)
+	if absf(along - _start_t) < _marker_span:
+		return _start_color
+	if absf(along - _finish_t) < _marker_span:
+		return _finish_color
+	return _road_color
+
+
+func _mesh_from(rings: Array) -> ArrayMesh:
+	var surface := SurfaceTool.new()
+	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
 	for i in rings.size() - 1:
-		_append_band(out, rings[i], rings[i + 1])
-	_append_cap(out, rings[0], true)
-	_append_cap(out, rings[rings.size() - 1], false)
-	return out
+		# One colour per band, taken from the ring it starts at, so the marker's
+		# edges land exactly on ring boundaries instead of fading between them.
+		_emit_band(surface, rings[i], rings[i + 1], _ring_color(i))
+	_emit_cap(surface, rings[0], true, _ring_color(0))
+	_emit_cap(surface, rings[rings.size() - 1], false, _ring_color(rings.size() - 1))
+	surface.generate_normals()
+	return surface.commit()
 
 
-static func _append_band(out: PackedVector3Array, near: PackedVector3Array,
-		far: PackedVector3Array) -> void:
+static func _emit_band(surface: SurfaceTool, near: PackedVector3Array,
+		far: PackedVector3Array, color: Color) -> void:
 	for edge in near.size():
 		var next := (edge + 1) % near.size()
-		_append_quad(out, near[edge], near[next], far[next], far[edge])
+		_emit_quad(surface, near[edge], near[next], far[next], far[edge], color)
 
 
-static func _append_cap(out: PackedVector3Array, ring: PackedVector3Array,
-		flip: bool) -> void:
+static func _emit_cap(surface: SurfaceTool, ring: PackedVector3Array,
+		flip: bool, color: Color) -> void:
 	if flip:
-		_append_quad(out, ring[3], ring[2], ring[1], ring[0])
+		_emit_quad(surface, ring[3], ring[2], ring[1], ring[0], color)
 	else:
-		_append_quad(out, ring[0], ring[1], ring[2], ring[3])
+		_emit_quad(surface, ring[0], ring[1], ring[2], ring[3], color)
 
 
 ## Wound so the road's normals face outward. This is not cosmetic: a
 ## ConcavePolygonShape3D only collides along its face normals
 ## (backface_collision defaults to false), so a road wound the other way is a
 ## road the ball falls straight through.
-static func _append_quad(out: PackedVector3Array, a: Vector3, b: Vector3,
-		c: Vector3, d: Vector3) -> void:
-	out.append(a)
-	out.append(c)
-	out.append(b)
-	out.append(a)
-	out.append(d)
-	out.append(c)
-
-
-static func _mesh_from(triangles: PackedVector3Array) -> ArrayMesh:
-	var surface := SurfaceTool.new()
-	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for vertex in triangles:
+static func _emit_quad(surface: SurfaceTool, a: Vector3, b: Vector3,
+		c: Vector3, d: Vector3, color: Color) -> void:
+	for vertex in [a, c, b, a, d, c]:
+		surface.set_color(color)
 		surface.add_vertex(vertex)
-	surface.generate_normals()
-	return surface.commit()
 
 
-static func _shape_from(triangles: PackedVector3Array) -> ConcavePolygonShape3D:
+static func _shape_from(faces: PackedVector3Array) -> ConcavePolygonShape3D:
 	var shape := ConcavePolygonShape3D.new()
-	shape.set_faces(triangles)
+	shape.set_faces(faces)
 	return shape
 
 
 func _road_material() -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
-	material.albedo_color = _color
+	material.albedo_color = Color.WHITE
+	material.vertex_color_use_as_albedo = true
 	material.roughness = 0.85
 	return material

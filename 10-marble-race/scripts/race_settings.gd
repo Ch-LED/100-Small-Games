@@ -21,6 +21,8 @@ static func load_all() -> Dictionary:
 			"angular_damp": file.get_value("ball", "angular_damp", 3.0),
 			"linear_damp_active": file.get_value("ball", "linear_damp_active", 0.05),
 			"angular_damp_active": file.get_value("ball", "angular_damp_active", 0.15),
+			"brake_linear_damp": file.get_value("ball", "brake_linear_damp", 2.4),
+			"brake_angular_damp": file.get_value("ball", "brake_angular_damp", 8.0),
 			"spin_torque": file.get_value("ball", "spin_torque", 5.0),
 			"turn_boost": file.get_value("ball", "turn_boost", 1.0),
 			"min_turn_speed": file.get_value("ball", "min_turn_speed", 1.0),
@@ -41,15 +43,28 @@ static func load_all() -> Dictionary:
 		},
 		"play": {
 			"fall_margin": file.get_value("play", "fall_margin", 8.0),
+			"restart_delay": file.get_value("play", "restart_delay", 1.1),
+			"finish_pause": file.get_value("play", "finish_pause", 2.2),
 		},
 		"track": {
 			"half_width": file.get_value("track", "half_width", 3.0),
 			"thickness": file.get_value("track", "thickness", 0.6),
-			"samples": int(file.get_value("track", "samples", 48)),
+			"samples": int(file.get_value("track", "samples", 160)),
 			"color": _color(file, "track", "color", Color("2A3346")),
 			"bank_max": file.get_value("track", "bank_max", 12.0),
 			"full_bank_radius": file.get_value("track", "full_bank_radius", 40.0),
 			"bank_deadband": file.get_value("track", "bank_deadband", 1.5),
+			"start_t": file.get_value("track", "start_t", 0.02),
+			"finish_t": file.get_value("track", "finish_t", 0.97),
+			"marker_span": file.get_value("track", "marker_span", 0.012),
+			"start_color": _color(file, "track", "start_color", Color("4BD3FF")),
+			"finish_color": _color(file, "track", "finish_color", Color("FFD24A")),
+		},
+		"hud": {
+			"font_size": int(file.get_value("hud", "font_size", 16)),
+			"margin": file.get_value("hud", "margin", 28.0),
+			"time_color": _color(file, "hud", "time_color", Color("F2F5F7")),
+			"message_color": _color(file, "hud", "message_color", Color("9FB0C8")),
 		},
 	}
 

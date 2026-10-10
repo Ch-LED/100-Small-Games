@@ -23,11 +23,21 @@ var surface_normal := Vector3.UP
 ## what arms the surface settling below.
 var grounded := false
 
+## True while the level is holding the ball on the start line. The drive is
+## skipped rather than the body frozen: freeze stops _integrate_forces, and a
+## body that does not run that callback cannot be driven at all.
+var frozen := false
+
 ## Last commanded drive direction, world space, for diagnostics and probes.
 var drive_direction := Vector3.ZERO
 
+## How hard the ball is being held back. All three are the same pair of damping
+## values, just chosen differently; there is no separate brake force, because
+## on a rolling ball the dampers ARE the brake.
+enum Resistance { COAST, DRIVE, BRAKE }
+
 var _cfg: Dictionary = {}
-var _driving := false
+var _resistance := Resistance.COAST
 
 
 func configure(settings: Dictionary) -> void:
@@ -39,7 +49,7 @@ func configure(settings: Dictionary) -> void:
 	# The drive lives in _integrate_forces, which is never called on a sleeping
 	# body — so a ball that ever dozed off could never be woken by the player.
 	can_sleep = false
-	_set_resistance(false)
+	_apply_resistance(Resistance.COAST)
 	var material := PhysicsMaterial.new()
 	material.friction = float(_cfg.friction)
 	material.bounce = float(_cfg.bounce)
@@ -74,13 +84,18 @@ static func _checker_texture(cells: int, light: Color, dark: Color) -> ImageText
 
 
 func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
-	if _cfg.is_empty():
+	if _cfg.is_empty() or frozen:
 		return
 	if grounded:
 		_settle_on_surface(state)
 	var steer := _read_steer()
-	_set_resistance(steer != Vector2.ZERO)
-	if steer == Vector2.ZERO:
+	# The brake overrides the drive rather than fighting it. Steering IS the
+	# throttle in this game, so there is no way to ask for both, and a brake
+	# that loses to a held accelerator is not a brake.
+	var braking := Input.is_action_pressed("fire")
+	_apply_resistance(Resistance.BRAKE if braking
+			else (Resistance.DRIVE if steer != Vector2.ZERO else Resistance.COAST))
+	if braking or steer == Vector2.ZERO:
 		drive_direction = Vector3.ZERO
 	else:
 		_drive(state, steer)
@@ -144,12 +159,20 @@ func _turn_boost(velocity: Vector3) -> float:
 ## so the drive feels responsive when you ask for it and the ball still settles
 ## instead of gliding like ice the moment you let go. The damps — not friction —
 ## are what stop a rolling ball, since a rolling contact does no work.
-func _set_resistance(driving: bool) -> void:
-	if driving == _driving:
+func _apply_resistance(level: Resistance) -> void:
+	if level == _resistance:
 		return
-	_driving = driving
-	linear_damp = float(_cfg.linear_damp_active if driving else _cfg.linear_damp)
-	angular_damp = float(_cfg.angular_damp_active if driving else _cfg.angular_damp)
+	_resistance = level
+	match level:
+		Resistance.DRIVE:
+			linear_damp = float(_cfg.linear_damp_active)
+			angular_damp = float(_cfg.angular_damp_active)
+		Resistance.BRAKE:
+			linear_damp = float(_cfg.brake_linear_damp)
+			angular_damp = float(_cfg.brake_angular_damp)
+		_:
+			linear_damp = float(_cfg.linear_damp)
+			angular_damp = float(_cfg.angular_damp)
 
 
 func _clamp_speed(state: PhysicsDirectBodyState3D) -> void:

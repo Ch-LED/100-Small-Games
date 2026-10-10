@@ -1,10 +1,11 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://10-marble-race/scripts/race.gd" id="1_race"]
 [ext_resource type="Script" path="res://10-marble-race/scripts/ball.gd" id="2_ball"]
 [ext_resource type="Script" path="res://10-marble-race/scripts/camera_rig.gd" id="3_camera"]
 [ext_resource type="Script" path="res://10-marble-race/scripts/track.gd" id="4_track"]
 [ext_resource type="Curve3D" path="res://10-marble-race/resources/tracks/track_01.tres" id="5_curve"]
+[ext_resource type="PackedScene" path="res://10-marble-race/scenes/hud.tscn" id="6_hud"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_1"]
 sky_top_color = Color(0.12, 0.18, 0.34, 1)
@@ -68,3 +69,5 @@ script = ExtResource("3_camera")
 [node name="Camera3D" type="Camera3D" parent="CameraRig"]
 current = true
 far = 300.0
+
+[node name="Hud" parent="." instance=ExtResource("6_hud")]
