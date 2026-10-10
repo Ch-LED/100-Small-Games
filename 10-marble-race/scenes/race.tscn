@@ -1,0 +1,109 @@
+[gd_scene load_steps=16 format=3]
+
+[ext_resource type="Script" path="res://10-marble-race/scripts/race.gd" id="1_race"]
+[ext_resource type="Script" path="res://10-marble-race/scripts/ball.gd" id="2_ball"]
+[ext_resource type="Script" path="res://10-marble-race/scripts/camera_rig.gd" id="3_camera"]
+
+[sub_resource type="Environment" id="Environment_1"]
+background_mode = 1
+background_color = Color(0.07, 0.09, 0.14, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.55, 0.6, 0.75, 1)
+ambient_light_energy = 0.6
+
+[sub_resource type="BoxMesh" id="BoxMesh_ground"]
+size = Vector3(60, 1, 60)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_ground"]
+size = Vector3(60, 1, 60)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ground"]
+albedo_color = Color(0.16, 0.18, 0.24, 1)
+roughness = 0.85
+
+[sub_resource type="BoxMesh" id="BoxMesh_slope"]
+size = Vector3(14, 0.6, 9)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_slope"]
+size = Vector3(14, 0.6, 9)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_slope"]
+albedo_color = Color(0.22, 0.35, 0.3, 1)
+roughness = 0.85
+
+[sub_resource type="BoxMesh" id="BoxMesh_wall"]
+size = Vector3(10, 4, 0.1)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_wall"]
+size = Vector3(10, 4, 0.1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wall"]
+albedo_color = Color(0.75, 0.3, 0.25, 1)
+roughness = 0.85
+
+[sub_resource type="SphereMesh" id="SphereMesh_ball"]
+radius = 0.5
+height = 1.0
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_ball"]
+radius = 0.5
+
+[node name="Race" type="Node3D"]
+script = ExtResource("1_race")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_1")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+position = Vector3(0, 12, 0)
+rotation_degrees = Vector3(-55, -35, 0)
+shadow_enabled = true
+
+[node name="Ground" type="StaticBody3D" parent="."]
+position = Vector3(0, -0.5, 0)
+
+[node name="Mesh" type="MeshInstance3D" parent="Ground"]
+mesh = SubResource("BoxMesh_ground")
+material_override = SubResource("StandardMaterial3D_ground")
+
+[node name="Shape" type="CollisionShape3D" parent="Ground"]
+shape = SubResource("BoxShape3D_ground")
+
+[node name="Slope" type="StaticBody3D" parent="."]
+position = Vector3(0, 0.5, -16)
+rotation_degrees = Vector3(14, 0, 0)
+
+[node name="Mesh" type="MeshInstance3D" parent="Slope"]
+mesh = SubResource("BoxMesh_slope")
+material_override = SubResource("StandardMaterial3D_slope")
+
+[node name="Shape" type="CollisionShape3D" parent="Slope"]
+shape = SubResource("BoxShape3D_slope")
+
+[node name="Wall" type="StaticBody3D" parent="."]
+position = Vector3(0, 2, -26)
+
+[node name="Mesh" type="MeshInstance3D" parent="Wall"]
+mesh = SubResource("BoxMesh_wall")
+material_override = SubResource("StandardMaterial3D_wall")
+
+[node name="Shape" type="CollisionShape3D" parent="Wall"]
+shape = SubResource("BoxShape3D_wall")
+
+[node name="Ball" type="RigidBody3D" parent="."]
+position = Vector3(0, 0.6, 20)
+script = ExtResource("2_ball")
+
+[node name="Mesh" type="MeshInstance3D" parent="Ball"]
+mesh = SubResource("SphereMesh_ball")
+
+[node name="Shape" type="CollisionShape3D" parent="Ball"]
+shape = SubResource("SphereShape3D_ball")
+
+[node name="CameraRig" type="Node3D" parent="."]
+position = Vector3(0, 4, 28)
+script = ExtResource("3_camera")
+
+[node name="Camera3D" type="Camera3D" parent="CameraRig"]
+current = true
+far = 200.0
