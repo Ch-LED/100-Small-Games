@@ -199,6 +199,13 @@ func _ride_road(state: PhysicsDirectBodyState3D) -> void:
 	var lateral := in_plane.length()
 	if above > _cfg.radius:
 		return                       # clear of the road altogether
+	# Under the road, not on it. A ball that has fallen past the edge and
+	# drifted back beneath the ribbon sits directly under the centreline, so
+	# its lateral offset is nothing and its height is negative — and the two
+	# guards that used to be here both waved it through, which teleported it
+	# back up onto the road from underneath. Support only ever acts from above.
+	if above < 0.0:
+		return
 	if not edge_field and lateral > road_half_width:
 		return                       # off the edge, and nothing there to stop it
 	if edge_field and lateral > 0.0001:
