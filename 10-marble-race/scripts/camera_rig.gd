@@ -14,6 +14,8 @@ var _wanted_up := Vector3.UP
 ## While the ] flight mode is on the pitch limit comes off, so the view — and
 ## with it the direction the ball is pushed — can point anywhere.
 var _free_look := false
+var _orbit_remaining := 0.0
+var _orbit_rate := 0.0
 
 
 func configure(settings: Dictionary, target: Node3D) -> void:
@@ -34,6 +36,13 @@ func get_steering_basis() -> Basis:
 	return Basis(_up, _yaw)
 
 
+## One slow lap around the ball when a run ends. It takes the yaw over
+## entirely while it lasts: the mouse is not in charge of a victory lap.
+func celebrate(seconds: float) -> void:
+	_orbit_remaining = TAU
+	_orbit_rate = TAU / maxf(seconds, 0.01)
+
+
 func set_free_look(on: bool) -> void:
 	_free_look = on
 
@@ -48,6 +57,8 @@ func get_look_basis() -> Basis:
 func _unhandled_input(event: InputEvent) -> void:
 	var motion := event as InputEventMouseMotion
 	if motion == null or _cfg.is_empty():
+		return
+	if _orbit_remaining > 0.0:
 		return
 	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return
@@ -66,6 +77,10 @@ func _unhandled_input(event: InputEvent) -> void:
 func _physics_process(delta: float) -> void:
 	if _target == null or _cfg.is_empty():
 		return
+	if _orbit_remaining > 0.0:
+		var step := minf(_orbit_rate * delta, _orbit_remaining)
+		_yaw += step
+		_orbit_remaining -= step
 	_up = _up.slerp(_wanted_up, 1.0 - exp(-float(_cfg.align_damp) * delta)).normalized()
 	var distance: float = _cfg.distance
 	# Pitch rotates the offset about the yawed lateral axis, so the clamp is

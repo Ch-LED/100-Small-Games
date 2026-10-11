@@ -42,6 +42,7 @@ static func load_all() -> Dictionary:
 		"play": {
 			"fall_margin": file.get_value("play", "fall_margin", 8.0),
 			"restart_delay": file.get_value("play", "restart_delay", 1.1),
+			"runoff_length": file.get_value("play", "runoff_length", 24.0),
 			"finish_pause": file.get_value("play", "finish_pause", 2.2),
 		},
 		"track": {
@@ -70,6 +71,15 @@ static func load_all() -> Dictionary:
 			"flight_angular_damp": file.get_value("cheat", "flight_angular_damp", 16.0),
 			"flight_max_speed": file.get_value("cheat", "flight_max_speed", 70.0),
 			"flight_brake_bleed": file.get_value("cheat", "flight_brake_bleed", 3.0),
+		},
+		"celebration": {
+			"confetti_amount": int(file.get_value("celebration", "confetti_amount", 120)),
+			"confetti_lifetime": file.get_value("celebration", "confetti_lifetime", 2.6),
+			"confetti_speed": file.get_value("celebration", "confetti_speed", 680.0),
+			"spark_amount": int(file.get_value("celebration", "spark_amount", 52)),
+			"spark_lifetime": file.get_value("celebration", "spark_lifetime", 1.5),
+			"spark_speed": file.get_value("celebration", "spark_speed", 12.5),
+			"orbit_seconds": file.get_value("celebration", "orbit_seconds", 4.5),
 		},
 		"hud": {
 			"font_size": int(file.get_value("hud", "font_size", 16)),

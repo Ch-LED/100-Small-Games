@@ -8,6 +8,10 @@ extends Path3D
 @onready var _mesh_instance: MeshInstance3D = $Mesh
 @onready var _shape: CollisionShape3D = $Body/Shape
 @onready var _debug: MeshInstance3D = $Debug
+@onready var _start_line: Area3D = $StartLine
+@onready var _finish_line: Area3D = $FinishLine
+@onready var _runoff: StaticBody3D = $Runoff
+@onready var _back_wall: StaticBody3D = $BackWall
 
 ## Barriers rising out of the road's edges. Level data rather than tuning, so
 ## it is edited here and saved with the level rather than kept in the cfg.
@@ -40,6 +44,7 @@ var _wall_thickness := 0.35
 ## into it. A wall that simply starts is a wall the ball can catch an edge on.
 var _wall_ramp := 5.0
 var _debug_color := Color("FFE94A")
+var _runoff_length := 24.0
 var _bank_max := 12.0
 var _full_bank_radius := 100.0
 var _bank_deadband := 1.5
@@ -59,6 +64,7 @@ func configure(settings: Dictionary) -> void:
 	_wall_thickness = settings.track.wall_thickness
 	_wall_ramp = settings.track.wall_ramp
 	_debug_color = settings.track.debug_color
+	_runoff_length = settings.play.runoff_length
 	_bank_max = settings.track.bank_max
 	_full_bank_radius = settings.track.full_bank_radius
 	_bank_deadband = settings.track.bank_deadband
@@ -68,6 +74,19 @@ func configure(settings: Dictionary) -> void:
 	_start_color = settings.track.start_color
 	_finish_color = settings.track.finish_color
 	_build()
+
+
+## The two places the run is timed between. The level connects to their
+## entered signals rather than asking where the ball is along the curve.
+var start_line: Area3D:
+	get: return _start_line
+var finish_line: Area3D:
+	get: return _finish_line
+
+
+## How far the road reaches either side of its centreline.
+func half_width() -> float:
+	return _half_width
 
 
 func start_point() -> Vector3:
@@ -153,6 +172,8 @@ func _build() -> void:
 	_shape.shape = _shape_from(faces)
 	# The overlay is built from those same faces, so P shows what the ball can
 	# actually hit rather than a redrawing of it.
+	_place_triggers(length)
+	_build_runoff(length)
 	_debug.mesh = _wireframe(faces)
 	_debug.material_override = _debug_material()
 	_debug.visible = false
@@ -191,6 +212,39 @@ func _debug_material() -> StandardMaterial3D:
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	material.albedo_color = _debug_color
 	return material
+
+
+## The start and finish are places the ball has to actually reach, not a number
+## its position happens to exceed. A box across the road at each carries the
+## same information the painted band already does, in a form the ball can be
+## inside of or not.
+func _place_triggers(length: float) -> void:
+	for pair in [[_start_line, _start_t], [_finish_line, _finish_t]]:
+		var area: Area3D = pair[0]
+		var frame := frame_near(to_global(curve.sample_baked(length * float(pair[1]))))
+		area.global_transform = frame
+		var box: BoxShape3D = (area.get_node("Shape") as CollisionShape3D).shape
+		box.size = Vector3(_half_width * 2.0, 4.0, 1.2)
+
+
+## Road enough to stop on past the finish, and a wall to stop against. Without
+## it a ball that finishes at speed simply leaves the world, which reads as the
+## game having dropped it rather than as having won.
+func _build_runoff(length: float) -> void:
+	var end := frame_near(to_global(curve.sample_baked(length)))
+	for entry in [[_runoff, Vector3(_half_width * 2.0, _thickness, _runoff_length)],
+			[_back_wall, Vector3(_half_width * 2.0, 5.0, _thickness)]]:
+		var node: Node3D = entry[0]
+		var size: Vector3 = entry[1]
+		var mesh: MeshInstance3D = node.get_node("Mesh")
+		var shape: CollisionShape3D = node.get_node("Shape")
+		(mesh.mesh as BoxMesh).size = size
+		(shape.shape as BoxShape3D).size = size
+		mesh.material_override = _road_material()
+	# Both sit one half-thickness below the road's surface, so their tops are
+	# level with it.
+	_runoff.global_transform = end.translated_local(Vector3(0.0, 0.0, -_runoff_length * 0.5)) 			.translated_local(Vector3(0.0, -_thickness * 0.5, 0.0))
+	_back_wall.global_transform = end.translated_local(Vector3(0.0, 2.0, -_runoff_length)) 			.translated_local(Vector3(0.0, -_thickness * 0.5, 0.0))
 
 
 func _banked(frame: Transform3D, offset: float, length: float) -> Transform3D:

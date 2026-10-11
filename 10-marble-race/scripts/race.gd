@@ -17,6 +17,7 @@ enum State { READY, RUNNING, FALLEN, FINISHED }
 @onready var _track: RaceTrackPath = $Track
 @onready var _hud: MarbleHud = $Hud
 @onready var _pause: MarblePauseMenu = $PauseMenu
+@onready var _celebration: MarbleCelebration = $Celebration
 
 ## Set by the root before this node enters the tree.
 var track_id := ""
@@ -31,6 +32,9 @@ var _restart_delay := 1.1
 var _finish_pause := 2.2
 var _state := State.READY
 var _base_message := ""
+## False until the ball has crossed the start line. The clock does not run
+## before that, so the run is timed from the line and not from the keypress.
+var _clock_armed := false
 var _cheat := false
 var _super := false
 var _clock := 0.0
@@ -45,6 +49,10 @@ func _ready() -> void:
 	_camera_rig.configure(_cfg, _ball)
 	_ball.configure(_cfg)
 	_hud.configure(_cfg)
+	_track.start_line.body_entered.connect(_on_start_line)
+	_track.finish_line.body_entered.connect(_on_finish_line)
+	_celebration.configure(_cfg)
+	_celebration.place_at_finish(_track)
 	_pause.configure(_cfg)
 	_pause.resume_pressed.connect(_close_pause)
 	_pause.restart_pressed.connect(_restart_from_pause)
@@ -117,14 +125,14 @@ func _advance(delta: float) -> void:
 			if _start_requested():
 				_enter_running()
 		State.RUNNING:
-			_clock += delta
-			_hud.set_time(_clock)
+			if _clock_armed:
+				_clock += delta
+				_hud.set_time(_clock)
 			# Flight is the one mode where going under the road is not the end
 			# of the run: the ball is meant to be able to leave it.
 			if _ball.global_position.y < _fall_y and not _super:
 				_enter_fallen()
-			elif _track.progress_at(_ball.global_position) >= _finish_t:
-				_enter_finished()
+
 		State.FALLEN:
 			_waited += delta
 			if _waited >= _restart_delay:
@@ -186,6 +194,19 @@ func _leave_for_levels() -> void:
 	back_pressed.emit()
 
 
+func _on_start_line(body: Node3D) -> void:
+	if body != _ball or _state != State.RUNNING or _clock_armed:
+		return
+	_clock_armed = true
+	_clock = 0.0
+	_hud.set_time(0.0)
+
+
+func _on_finish_line(body: Node3D) -> void:
+	if body == _ball and _state == State.RUNNING:
+		_enter_finished()
+
+
 func _enter_ready() -> void:
 	_state = State.READY
 	# Cheats reset with the run, the way they do in every other game here.
@@ -197,6 +218,8 @@ func _enter_ready() -> void:
 	_waited = 0.0
 	_hold_on_the_line()
 	_hud.set_time(0.0)
+	_celebration.stop()
+	_clock_armed = false
 	_base_message = "SPACE TO START   BEST %s" % MarbleSave.format(best_time)
 	_update_message()
 
@@ -220,6 +243,8 @@ func _enter_finished() -> void:
 	_state = State.FINISHED
 	_ball.frozen = true
 	_waited = 0.0
+	_celebration.fire()
+	_camera_rig.celebrate(float(_cfg.celebration.orbit_seconds))
 	_base_message = "FINISHED  %s" % MarbleHud.format_time(_clock)
 	_update_message()
 	finished.emit(track_id, _clock)
