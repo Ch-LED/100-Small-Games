@@ -26,10 +26,17 @@ var road_point := Vector3.ZERO
 var road_half_width := 0.0
 var has_road := false
 
-## True while the level is holding the ball on the start line. The drive is
-## skipped rather than the body frozen: freeze stops _integrate_forces, and a
-## body that does not run that callback cannot be driven at all.
+## True while the level is holding the ball on the start line, or has given up
+## on the run after a fall. The drive is skipped rather than the body frozen:
+## freeze stops _integrate_forces, and a body that does not run that callback
+## cannot be driven at all.
 var frozen := false
+
+## True once the run has been won. The player has no say any more, but the road
+## still holds the ball up and the contact still rubs. This is not the same as
+## frozen: freezing drops the ground too, and the ball would then sink through
+## the road it had just crossed, all the way through the victory lap.
+var coasting := false
 
 ## Last commanded drive direction, world space, for diagnostics and probes.
 var drive_direction := Vector3.ZERO
@@ -124,6 +131,13 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 		return
 	if has_road:
 		_ride_road(state)
+	if coasting:
+		# The run is over: no drive and no brake, just the road and the coasting
+		# dampers bringing the ball to rest on the run-out.
+		_apply_resistance(Resistance.COAST)
+		drive_direction = Vector3.ZERO
+		_clamp_speed(state)
+		return
 	var braking := Input.is_action_pressed("fire")
 	# The brake overrides the drive rather than fighting it: steering IS the
 	# throttle here, so both cannot be asked for at once, and a brake that

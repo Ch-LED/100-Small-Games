@@ -11,7 +11,15 @@ extends Path3D
 @onready var _start_line: Area3D = $StartLine
 @onready var _finish_line: Area3D = $FinishLine
 @onready var _runoff: StaticBody3D = $Runoff
+@onready var _runoff_mesh: MeshInstance3D = $Runoff/Mesh
+@onready var _runoff_shape: CollisionShape3D = $Runoff/Shape
 @onready var _back_wall: StaticBody3D = $BackWall
+@onready var _back_wall_mesh: MeshInstance3D = $BackWall/Mesh
+@onready var _back_wall_shape: CollisionShape3D = $BackWall/Shape
+@onready var _rail_left: StaticBody3D = $RailLeft
+@onready var _rail_left_shape: CollisionShape3D = $RailLeft/Shape
+@onready var _rail_right: StaticBody3D = $RailRight
+@onready var _rail_right_shape: CollisionShape3D = $RailRight/Shape
 
 ## Barriers rising out of the road's edges. Level data rather than tuning, so
 ## it is edited here and saved with the level rather than kept in the cfg.
@@ -23,6 +31,11 @@ extends Path3D
 ## ring to ring — a washboard at speed. Averaging over 2 * BANK_STEP of road
 ## is what turns that into a ramp the ball can actually feel as a corner.
 const BANK_STEP := 8.0
+
+## How tall the run-out's side walls stand. Nothing but a ball ever reaches
+## them, and the run-out is where the ball is meant to stop, so this is
+## generous headroom rather than a tuned number.
+const RAIL_HEIGHT := 4.0
 
 ## Cross-section corners, in the curve's local frame: X is lateral, Y is up.
 ## Four of them, so the road is a solid slab rather than a surface — a
@@ -45,6 +58,10 @@ var _wall_thickness := 0.35
 var _wall_ramp := 5.0
 var _debug_color := Color("FFE94A")
 var _runoff_length := 24.0
+## Where the run-out begins, which is the curve's last frame. Held so the rails,
+## the back wall and the finish effects are all placed from one shared frame
+## instead of three separate lookups that could drift apart.
+var _runoff_start := Transform3D.IDENTITY
 var _bank_max := 12.0
 var _full_bank_radius := 100.0
 var _bank_deadband := 1.5
@@ -87,6 +104,16 @@ var finish_line: Area3D:
 ## How far the road reaches either side of its centreline.
 func half_width() -> float:
 	return _half_width
+
+
+## Where the run-out starts, and how far it runs. The finish effects are strung
+## along it rather than parked at coordinates that only fit this track.
+func runoff_frame() -> Transform3D:
+	return _runoff_start
+
+
+func runoff_length() -> float:
+	return _runoff_length
 
 
 func start_point() -> Vector3:
@@ -230,21 +257,46 @@ func _place_triggers(length: float) -> void:
 ## Road enough to stop on past the finish, and a wall to stop against. Without
 ## it a ball that finishes at speed simply leaves the world, which reads as the
 ## game having dropped it rather than as having won.
+##
+## The run-out is also rimmed with side walls, and those are always on rather
+## than behind the [ cheat. The cheat's air wall is there to rescue a run; the
+## run-out is not a run any more, it is where the ball is supposed to come to
+## rest, so sliding off the side of it is never something the player did and
+## never something they can correct.
 func _build_runoff(length: float) -> void:
-	var end := frame_near(to_global(curve.sample_baked(length)))
-	for entry in [[_runoff, Vector3(_half_width * 2.0, _thickness, _runoff_length)],
-			[_back_wall, Vector3(_half_width * 2.0, 5.0, _thickness)]]:
-		var node: Node3D = entry[0]
-		var size: Vector3 = entry[1]
-		var mesh: MeshInstance3D = node.get_node("Mesh")
-		var shape: CollisionShape3D = node.get_node("Shape")
+	_runoff_start = frame_near(to_global(curve.sample_baked(length)))
+	var road := _road_material()
+	# The floor and the back wall sit one half-thickness below the road's
+	# surface, so their tops come out level with it.
+	_fit_box(_runoff, _runoff_mesh, _runoff_shape, road,
+			Vector3(_half_width * 2.0, _thickness, _runoff_length),
+			_runoff_start.translated_local(
+					Vector3(0.0, -_thickness * 0.5, -_runoff_length * 0.5)))
+	_fit_box(_back_wall, _back_wall_mesh, _back_wall_shape, road,
+			Vector3(_half_width * 2.0, 5.0, _thickness),
+			_runoff_start.translated_local(
+					Vector3(0.0, 2.0 - _thickness * 0.5, -_runoff_length)))
+	# The side walls are invisible: an air wall that is drawn is a fence, and the
+	# player would spend the victory lap reading it instead of the finish.
+	for side in [-1.0, 1.0]:
+		_fit_box(_rail_left if side < 0.0 else _rail_right, null,
+				_rail_left_shape if side < 0.0 else _rail_right_shape, null,
+				Vector3(_wall_thickness, RAIL_HEIGHT, _runoff_length),
+				_runoff_start.translated_local(Vector3(
+						side * (_half_width + _wall_thickness * 0.5),
+						RAIL_HEIGHT * 0.5, -_runoff_length * 0.5)))
+
+
+## Sizes and places one piece of the run-out from its frame. All of it is
+## positioned relative to where the curve ends, so reshaping the track moves the
+## run-out with it instead of leaving it behind at fixed coordinates.
+func _fit_box(body: StaticBody3D, mesh: MeshInstance3D, shape: CollisionShape3D,
+		material: Material, size: Vector3, where: Transform3D) -> void:
+	(shape.shape as BoxShape3D).size = size
+	if mesh != null:
 		(mesh.mesh as BoxMesh).size = size
-		(shape.shape as BoxShape3D).size = size
-		mesh.material_override = _road_material()
-	# Both sit one half-thickness below the road's surface, so their tops are
-	# level with it.
-	_runoff.global_transform = end.translated_local(Vector3(0.0, 0.0, -_runoff_length * 0.5)) 			.translated_local(Vector3(0.0, -_thickness * 0.5, 0.0))
-	_back_wall.global_transform = end.translated_local(Vector3(0.0, 2.0, -_runoff_length)) 			.translated_local(Vector3(0.0, -_thickness * 0.5, 0.0))
+		mesh.material_override = material
+	body.global_transform = where
 
 
 func _banked(frame: Transform3D, offset: float, length: float) -> Transform3D:

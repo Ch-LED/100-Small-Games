@@ -1,14 +1,97 @@
-[gd_resource type="Resource" script_class="RaceTrackIndex" load_steps=4 format=3]
+[gd_resource type="Resource" script_class="RaceTrackIndex" load_steps=20 format=3]
 
 [ext_resource type="Script" path="res://10-marble-race/scripts/track_index.gd" id="1_index"]
 [ext_resource type="Script" path="res://10-marble-race/scripts/track_info.gd" id="2_info"]
+[ext_resource type="Script" path="res://10-marble-race/scripts/track_wall.gd" id="3_wall"]
+[ext_resource type="Curve3D" path="res://10-marble-race/resources/tracks/track_01.tres" id="4_curve1"]
+[ext_resource type="Curve3D" path="res://10-marble-race/resources/tracks/track_02.tres" id="5_curve2"]
+[ext_resource type="Curve3D" path="res://10-marble-race/resources/tracks/track_03.tres" id="6_curve3"]
+[ext_resource type="Curve3D" path="res://10-marble-race/resources/tracks/track_04.tres" id="7_curve4"]
 
-[sub_resource type="Resource" id="Resource_track01"]
+[sub_resource type="Resource" id="Wall_01_left"]
+script = ExtResource("3_wall")
+side = -1
+from_t = 0.16
+to_t = 0.42
+height = 1.4
+
+[sub_resource type="Resource" id="Wall_01_right"]
+script = ExtResource("3_wall")
+side = 1
+from_t = 0.55
+to_t = 0.84
+height = 1.4
+
+[sub_resource type="Resource" id="Wall_02_left"]
+script = ExtResource("3_wall")
+side = -1
+from_t = 0.08
+to_t = 0.18
+height = 1.4
+
+[sub_resource type="Resource" id="Wall_02_right"]
+script = ExtResource("3_wall")
+side = 1
+from_t = 0.86
+to_t = 0.99
+height = 1.4
+
+[sub_resource type="Resource" id="Wall_03_left"]
+script = ExtResource("3_wall")
+side = -1
+from_t = 0.08
+to_t = 0.16
+height = 1.4
+
+[sub_resource type="Resource" id="Wall_03_right"]
+script = ExtResource("3_wall")
+side = 1
+from_t = 0.9
+to_t = 0.99
+height = 1.4
+
+[sub_resource type="Resource" id="Wall_04_left"]
+script = ExtResource("3_wall")
+side = -1
+from_t = 0.07
+to_t = 0.14
+height = 1.4
+
+[sub_resource type="Resource" id="Wall_04_right"]
+script = ExtResource("3_wall")
+side = 1
+from_t = 0.88
+to_t = 0.99
+height = 1.4
+
+[sub_resource type="Resource" id="Info_01"]
 script = ExtResource("2_info")
 id = "track_01"
 display_name = "第一赛道"
-scene_path = "res://10-marble-race/scenes/race.tscn"
+curve = ExtResource("4_curve1")
+walls = Array[TrackWall]([SubResource("Wall_01_left"), SubResource("Wall_01_right")])
+
+[sub_resource type="Resource" id="Info_02"]
+script = ExtResource("2_info")
+id = "track_02"
+display_name = "第二赛道 · 大回转"
+curve = ExtResource("5_curve2")
+walls = Array[TrackWall]([SubResource("Wall_02_left"), SubResource("Wall_02_right")])
+
+[sub_resource type="Resource" id="Info_03"]
+script = ExtResource("2_info")
+id = "track_03"
+display_name = "第三赛道 · 连续弯"
+curve = ExtResource("6_curve3")
+walls = Array[TrackWall]([SubResource("Wall_03_left"), SubResource("Wall_03_right")])
+
+[sub_resource type="Resource" id="Info_04"]
+script = ExtResource("2_info")
+id = "track_04"
+display_name = "第四赛道 · 上下坡"
+curve = ExtResource("7_curve4")
+walls = Array[TrackWall]([SubResource("Wall_04_left"), SubResource("Wall_04_right")])
 
 [resource]
 script = ExtResource("1_index")
-tracks = Array[RaceTrackInfo]([SubResource("Resource_track01")])
+tracks = Array[RaceTrackInfo]([SubResource("Info_01"), SubResource("Info_02"), SubResource("Info_03"), SubResource("Info_04")])

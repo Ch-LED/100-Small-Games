@@ -1,8 +1,8 @@
 class_name MarbleCelebration
 extends Node
 ## What happens when the ball crosses the line: confetti in from the sides of
-## the screen, and a pair of cold fountains up off the ground on either side of
-## the finish.
+## the screen, and cold fountains up off the ground on either side of the finish
+## — a pair on the line, and a pair lining the run-out past it.
 ##
 ## Two halves in two different spaces, which is why this is a plain Node rather
 ## than an overlay: the sparks happen where the finish line is, in the world,
@@ -25,9 +25,10 @@ func configure(settings: Dictionary) -> void:
 			emitter.initial_velocity_min = float(cfg.confetti_speed) * 0.7
 			emitter.initial_velocity_max = float(cfg.confetti_speed)
 			_emitters.append(emitter)
-	for side in ["Left", "Right"]:
-		var spark: CPUParticles3D = _sparks.get_node(side)
-		spark.amount = int(cfg.spark_amount) / 2
+	for entry in [["Left", cfg.spark_amount], ["Right", cfg.spark_amount],
+			["LeftRun", cfg.spark_run_amount], ["RightRun", cfg.spark_run_amount]]:
+		var spark: CPUParticles3D = _sparks.get_node(String(entry[0]))
+		spark.amount = int(entry[1]) / 2
 		spark.lifetime = float(cfg.spark_lifetime)
 		spark.initial_velocity_min = float(cfg.spark_speed) * 0.6
 		spark.initial_velocity_max = float(cfg.spark_speed)
@@ -35,16 +36,26 @@ func configure(settings: Dictionary) -> void:
 	stop()
 
 
-## Puts the fountains on the ground either side of the finish line. They are
-## placed from the road's own frame there rather than from coordinates, so they
-## follow the line if the track is reshaped.
+## Puts the cold fountains where the finish is: a pair on the line itself, and a
+## pair lining the run-out past it. Both are placed from the road's own frames
+## rather than from coordinates, so they follow the line if the track is
+## reshaped.
 func place_at_finish(track: RaceTrackPath) -> void:
-	var centre := track.finish_line.global_position
-	var lateral := track.finish_line.global_transform.basis.x
+	var line := track.finish_line.global_transform
 	var width := track.half_width()
 	for side in [[-1.0, "Left"], [1.0, "Right"]]:
 		var spark: CPUParticles3D = _sparks.get_node(String(side[1]))
-		spark.global_position = centre + lateral * (width * float(side[0]))
+		spark.global_position = line.origin + line.basis.x * (width * float(side[0]))
+	# The run-out is lined the whole way down. One emitter per edge rather than a
+	# station every few metres: a box emission covers the length exactly, and the
+	# length belongs to the track, not to a number kept in step here by hand.
+	var length := track.runoff_length()
+	var run := track.runoff_frame().translated_local(Vector3(0.0, 0.0, -length * 0.5))
+	for side in [[-1.0, "LeftRun"], [1.0, "RightRun"]]:
+		var spark: CPUParticles3D = _sparks.get_node(String(side[1]))
+		spark.emission_box_extents = Vector3(0.4, 0.15, length * 0.5)
+		spark.global_transform = run.translated_local(
+				Vector3(width * float(side[0]), 0.0, 0.0))
 
 
 func fire() -> void:

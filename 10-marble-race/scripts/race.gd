@@ -19,8 +19,11 @@ enum State { READY, RUNNING, FALLEN, FINISHED }
 @onready var _pause: MarblePauseMenu = $PauseMenu
 @onready var _celebration: MarbleCelebration = $Celebration
 
-## Set by the root before this node enters the tree.
+## Set by the root before this node enters the tree. The route and its barriers
+## come in with it rather than out of the scene, because one scene runs every
+## track and the only thing that differs between them is the road.
 var track_id := ""
+var track_info: RaceTrackInfo = null
 var best_time := 0.0
 
 var _cfg: Dictionary = {}
@@ -45,6 +48,11 @@ func _ready() -> void:
 	_cfg = RaceSettings.load_all()
 	if _cfg.is_empty():
 		return
+	# Before configure(), which is what builds the road: the sweep has to be
+	# handed the route it is sweeping.
+	if track_info != null:
+		_track.curve = track_info.curve
+		_track.walls = track_info.walls
 	_track.configure(_cfg)
 	_camera_rig.configure(_cfg, _ball)
 	_ball.configure(_cfg)
@@ -214,6 +222,7 @@ func _enter_ready() -> void:
 	_super = false
 	_apply_cheats()
 	_ball.frozen = true
+	_ball.coasting = false
 	_clock = 0.0
 	_waited = 0.0
 	_hold_on_the_line()
@@ -234,6 +243,7 @@ func _enter_running() -> void:
 func _enter_fallen() -> void:
 	_state = State.FALLEN
 	_ball.frozen = true
+	_ball.coasting = false
 	_waited = 0.0
 	_base_message = "FELL  -  RESTARTING"
 	_update_message()
@@ -241,7 +251,17 @@ func _enter_fallen() -> void:
 
 func _enter_finished() -> void:
 	_state = State.FINISHED
-	_ball.frozen = true
+	# Cheats come off with the run. Flight is the one that matters here: it has
+	# no road under it by design, and the ball is being handed back to the road
+	# for the run-out, so leaving it on would leave the ball hanging in the air
+	# for the whole victory lap.
+	_cheat = false
+	_super = false
+	_apply_cheats()
+	# Coasting rather than frozen: the ball keeps rolling to a stop on the
+	# run-out with the road still holding it up, it just cannot be driven.
+	_ball.frozen = false
+	_ball.coasting = true
 	_waited = 0.0
 	_celebration.fire()
 	_camera_rig.celebrate(float(_cfg.celebration.orbit_seconds))

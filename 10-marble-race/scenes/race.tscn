@@ -4,11 +4,9 @@
 [ext_resource type="Script" path="res://10-marble-race/scripts/ball.gd" id="2_ball"]
 [ext_resource type="Script" path="res://10-marble-race/scripts/camera_rig.gd" id="3_camera"]
 [ext_resource type="Script" path="res://10-marble-race/scripts/track.gd" id="4_track"]
-[ext_resource type="Curve3D" path="res://10-marble-race/resources/tracks/track_01.tres" id="5_curve"]
 [ext_resource type="PackedScene" path="res://10-marble-race/scenes/hud.tscn" id="6_hud"]
 [ext_resource type="PackedScene" path="res://10-marble-race/scenes/pause_menu.tscn" id="7_pause"]
 [ext_resource type="PackedScene" path="res://10-marble-race/scenes/celebration.tscn" id="8_celebration"]
-[ext_resource type="Script" path="res://10-marble-race/scripts/track_wall.gd" id="7_wall"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_1"]
 sky_top_color = Color(0.12, 0.18, 0.34, 1)
@@ -27,20 +25,6 @@ sky = SubResource("Sky_1")
 ambient_light_source = 3
 ambient_light_energy = 0.7
 
-[sub_resource type="Resource" id="TrackWall_left"]
-script = ExtResource("7_wall")
-side = -1
-from_t = 0.16
-to_t = 0.42
-height = 1.4
-
-[sub_resource type="Resource" id="TrackWall_right"]
-script = ExtResource("7_wall")
-side = 1
-from_t = 0.55
-to_t = 0.84
-height = 1.4
-
 [sub_resource type="BoxShape3D" id="BoxShape3D_line"]
 size = Vector3(6, 4, 1.2)
 
@@ -55,6 +39,9 @@ size = Vector3(6, 5, 0.6)
 
 [sub_resource type="BoxMesh" id="BoxMesh_backwall"]
 size = Vector3(6, 5, 0.6)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_rail"]
+size = Vector3(0.35, 4, 24)
 
 [sub_resource type="SphereMesh" id="SphereMesh_ball"]
 radius = 0.5
@@ -85,9 +72,7 @@ light_color = Color(0.72, 0.78, 0.95, 1)
 shadow_enabled = false
 
 [node name="Track" type="Path3D" parent="."]
-curve = ExtResource("5_curve")
 script = ExtResource("4_track")
-walls = Array[TrackWall]([SubResource("TrackWall_left"), SubResource("TrackWall_right")])
 
 [node name="Mesh" type="MeshInstance3D" parent="Track"]
 
@@ -118,6 +103,16 @@ mesh = SubResource("BoxMesh_backwall")
 
 [node name="Shape" type="CollisionShape3D" parent="Track/BackWall"]
 shape = SubResource("BoxShape3D_backwall")
+
+[node name="RailLeft" type="StaticBody3D" parent="Track"]
+
+[node name="Shape" type="CollisionShape3D" parent="Track/RailLeft"]
+shape = SubResource("BoxShape3D_rail")
+
+[node name="RailRight" type="StaticBody3D" parent="Track"]
+
+[node name="Shape" type="CollisionShape3D" parent="Track/RailRight"]
+shape = SubResource("BoxShape3D_rail")
 
 [node name="Body" type="StaticBody3D" parent="Track"]
 

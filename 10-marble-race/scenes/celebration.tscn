@@ -18,6 +18,10 @@ colors = PackedColorArray(1, 0.31, 0.85, 1, 1, 0.31, 0.85, 1, 1, 0.31, 0.85, 0)
 offsets = PackedFloat32Array(0, 0.7, 1)
 colors = PackedColorArray(0.82, 0.96, 1, 1, 0.62, 0.91, 1, 1, 0.62, 0.91, 1, 0)
 
+[sub_resource type="Gradient" id="Gradient_spark"]
+offsets = PackedFloat32Array(0, 0.75, 1)
+colors = PackedColorArray(1, 0.95, 0.66, 1, 1, 0.95, 0.66, 1, 1, 0.95, 0.66, 0)
+
 [sub_resource type="SphereMesh" id="SphereMesh_spark"]
 radius = 0.5
 height = 1.0
@@ -135,7 +139,7 @@ initial_velocity_min = 7.0
 initial_velocity_max = 12.5
 scale_amount_min = 0.05
 scale_amount_max = 0.11
-color_ramp = SubResource("Gradient_ice")
+color_ramp = SubResource("Gradient_spark")
 material_override = SubResource("Material_spark")
 
 [node name="Right" type="CPUParticles3D" parent="Sparks"]
@@ -155,5 +159,46 @@ initial_velocity_min = 7.0
 initial_velocity_max = 12.5
 scale_amount_min = 0.05
 scale_amount_max = 0.11
-color_ramp = SubResource("Gradient_ice")
+color_ramp = SubResource("Gradient_spark")
 material_override = SubResource("Material_spark")
+
+[node name="LeftRun" type="CPUParticles3D" parent="Sparks"]
+unique_name_in_owner = true
+emitting = false
+amount = 100
+lifetime = 1.5
+one_shot = true
+explosiveness = 0.3
+mesh = SubResource("SphereMesh_spark")
+emission_shape = 3
+emission_box_extents = Vector3(0.4, 0.15, 12)
+direction = Vector3(0, 1, 0)
+spread = 20.0
+gravity = Vector3(0, -9.8, 0)
+initial_velocity_min = 7.0
+initial_velocity_max = 12.5
+scale_amount_min = 0.05
+scale_amount_max = 0.11
+color_ramp = SubResource("Gradient_spark")
+material_override = SubResource("Material_spark")
+
+[node name="RightRun" type="CPUParticles3D" parent="Sparks"]
+unique_name_in_owner = true
+emitting = false
+amount = 100
+lifetime = 1.5
+one_shot = true
+explosiveness = 0.3
+mesh = SubResource("SphereMesh_spark")
+emission_shape = 3
+emission_box_extents = Vector3(0.4, 0.15, 12)
+direction = Vector3(0, 1, 0)
+spread = 20.0
+gravity = Vector3(0, -9.8, 0)
+initial_velocity_min = 7.0
+initial_velocity_max = 12.5
+scale_amount_min = 0.05
+scale_amount_max = 0.11
+color_ramp = SubResource("Gradient_spark")
+material_override = SubResource("Material_spark")
+

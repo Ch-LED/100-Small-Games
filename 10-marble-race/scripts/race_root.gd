@@ -10,7 +10,6 @@ extends Node
 
 const MENU := "res://10-marble-race/scenes/menu.tscn"
 const LEVEL_SELECT := "res://10-marble-race/scenes/level_select.tscn"
-const FALLBACK_TRACK := "res://10-marble-race/scenes/race.tscn"
 
 @onready var _stage: Node = $Stage
 
@@ -46,10 +45,16 @@ func show_level_select() -> void:
 
 
 func show_race(track_id: String) -> void:
-	var screen: Node = _clear_and_instantiate(_scene_for(track_id))
+	var info := _info_for(track_id)
+	if info == null:
+		# Refusing beats running some other track and calling it this one.
+		push_error("MarbleRaceRoot: %s is not in the index" % track_id)
+		return
+	var screen: Node = _clear_and_instantiate(info.scene_path)
 	# Set before the node enters the tree: _ready() runs on add_child, and a
 	# level that has already started does not want to be told which track it is.
 	screen.set("track_id", track_id)
+	screen.set("track_info", info)
 	screen.set("best_time", _save.best(track_id))
 	screen.connect("finished", _on_finished)
 	screen.connect("back_pressed", show_level_select)
@@ -62,12 +67,11 @@ func _on_finished(track_id: String, seconds: float) -> void:
 				% [track_id, MarbleSave.format(seconds)])
 
 
-func _scene_for(track_id: String) -> String:
+func _info_for(track_id: String) -> RaceTrackInfo:
 	for track in _index.tracks:
 		if track.id == track_id:
-			return track.scene_path
-	push_error("MarbleRaceRoot: %s is not in the index" % track_id)
-	return FALLBACK_TRACK
+			return track
+	return null
 
 
 ## Screens are swapped, not hidden and shown. A screen that has been freed

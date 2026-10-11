@@ -79,6 +79,7 @@ static func load_all() -> Dictionary:
 			"spark_amount": int(file.get_value("celebration", "spark_amount", 52)),
 			"spark_lifetime": file.get_value("celebration", "spark_lifetime", 1.5),
 			"spark_speed": file.get_value("celebration", "spark_speed", 12.5),
+			"spark_run_amount": int(file.get_value("celebration", "spark_run_amount", 200)),
 			"orbit_seconds": file.get_value("celebration", "orbit_seconds", 4.5),
 		},
 		"hud": {
