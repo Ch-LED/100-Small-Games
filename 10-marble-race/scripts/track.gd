@@ -25,12 +25,13 @@ extends Path3D
 ## it is edited here and saved with the level rather than kept in the cfg.
 @export var walls: Array[TrackWall] = []
 
-## Half the distance the bank's curvature is measured over, in metres. A
-## Catmull-Rom curve through sparse waypoints has curvature that swings hard
-## from point to point, and a bank that tracks it exactly twists the road
-## ring to ring — a washboard at speed. Averaging over 2 * BANK_STEP of road
-## is what turns that into a ramp the ball can actually feel as a corner.
-const BANK_STEP := 8.0
+## How much room a corner must leave outside its own inner edge, in metres. The
+## inner edge is pulled in until it clears this.
+const INNER_MARGIN := 0.8
+
+## Half the distance the curvature is measured over when working out how much to
+## narrow a corner's inside.
+const WIDTH_STEP := 8.0
 
 ## How tall the run-out's side walls stand. Nothing but a ball ever reaches
 ## them, and the run-out is where the ball is meant to stop, so this is
@@ -62,9 +63,6 @@ var _runoff_length := 24.0
 ## the back wall and the finish effects are all placed from one shared frame
 ## instead of three separate lookups that could drift apart.
 var _runoff_start := Transform3D.IDENTITY
-var _bank_max := 12.0
-var _full_bank_radius := 100.0
-var _bank_deadband := 1.5
 var _start_t := 0.02
 var _finish_t := 0.97
 var _marker_span := 0.012
@@ -82,9 +80,6 @@ func configure(settings: Dictionary) -> void:
 	_wall_ramp = settings.track.wall_ramp
 	_debug_color = settings.track.debug_color
 	_runoff_length = settings.play.runoff_length
-	_bank_max = settings.track.bank_max
-	_full_bank_radius = settings.track.full_bank_radius
-	_bank_deadband = settings.track.bank_deadband
 	_start_t = settings.track.start_t
 	_finish_t = settings.track.finish_t
 	_marker_span = settings.track.marker_span
@@ -128,6 +123,23 @@ func progress_at(point: Vector3) -> float:
 	return curve.get_closest_offset(to_local(point)) / curve.get_baked_length()
 
 
+## The road's forward direction at the point nearest a world position, taken
+## along the curve's increasing offset. This is NOT the sampled frame's own Z —
+## that points back down the track — and swapping the two sends the ball off the
+## start line backwards, which is why the decision lives in exactly one place.
+func forward_near(point: Vector3) -> Vector3:
+	if curve == null:
+		return global_transform.basis.z
+	var length := curve.get_baked_length()
+	var offset := curve.get_closest_offset(to_local(point))
+	var ahead := to_global(curve.sample_baked(minf(offset + 2.0, length)))
+	var behind := to_global(curve.sample_baked(maxf(offset - 2.0, 0.0)))
+	var heading := ahead - behind
+	if heading.length_squared() < 0.000001:
+		return global_transform.basis.z
+	return heading.normalized()
+
+
 ## Lowest baked point of the road, so the ball can be judged fallen relative to
 ## where the road actually goes rather than against a fixed height.
 func lowest_point() -> float:
@@ -140,9 +152,13 @@ func lowest_point() -> float:
 	return lowest
 
 
-## The curve frame nearest a world point, with the curve's tilt applied. Its Y
-## is the road's up — which the ball rolls about, and which the camera clamps
-## its pitch against once the track banks.
+## The curve frame nearest a world point. Its Y is the road's up — which the
+## ball rolls about, and which the camera clamps its pitch against.
+##
+## All of the surface's roll comes from the waypoints' own tilt/aim now. The
+## previous version derived a bank from the curvature here and added it on top,
+## which cannot be aimed anywhere: a loop's staggered legs twist the curve frame
+## by hundreds of degrees and the derived bank just rode along with it.
 ##
 ## get_closest_offset is unambiguous only while the road never passes near
 ## itself; a track that crosses, loops back, or forks will need something
@@ -150,15 +166,14 @@ func lowest_point() -> float:
 func frame_near(point: Vector3) -> Transform3D:
 	if curve == null:
 		return global_transform
-	var length := curve.get_baked_length()
 	var offset := curve.get_closest_offset(to_local(point))
-	var local := curve.sample_baked_with_rotation(offset, false, true)
+	var local := curve.sample_baked_with_rotation(offset, true, true)
 	# Orthonormalised once, here, at the source. Curve3D samples a basis that is
 	# unit length only to within a rounding error, and everything downstream —
-	# the bank, the camera's plane, the ] flight axes — uses these vectors as
-	# rotation axes, which Godot refuses unless they are exactly unit length.
+	# the camera's plane, the ] flight axes — uses these vectors as rotation
+	# axes, which Godot refuses unless they are exactly unit length.
 	local.basis = local.basis.orthonormalized()
-	return global_transform * _banked(local, offset, length)
+	return global_transform * local
 
 
 func _build() -> void:
@@ -175,11 +190,11 @@ func _build() -> void:
 	for i in _samples + 1:
 		var offset := length * float(i) / float(_samples)
 		var along := float(i) / float(_samples)
-		var frame := _banked(curve.sample_baked_with_rotation(offset, false, true),
-				offset, length)
-		slabs.append(_slab_ring(frame))
-		lefts.append(_wall_ring(frame, -1, along, length))
-		rights.append(_wall_ring(frame, 1, along, length))
+		var frame := curve.sample_baked_with_rotation(offset, true, true)
+		var narrowing := _inner_narrowing(offset, length, frame)
+		slabs.append(_slab_ring(frame, offset, length))
+		lefts.append(_wall_ring(frame, -1, along, length, narrowing))
+		rights.append(_wall_ring(frame, 1, along, length, narrowing))
 
 	var surface := SurfaceTool.new()
 	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
@@ -299,61 +314,67 @@ func _fit_box(body: StaticBody3D, mesh: MeshInstance3D, shape: CollisionShape3D,
 	body.global_transform = where
 
 
-func _banked(frame: Transform3D, offset: float, length: float) -> Transform3D:
-	var bank := _bank_at(offset, length, frame)
-	if is_zero_approx(bank):
-		return frame
-	var rolled := frame
-	# The axis has to be normalized: Curve3D's sampled basis is orthonormal to
-	# within a rounding error, and Basis.rotated() refuses anything that is not
-	# unit length. It only ever bit on banked stretches, because a straight has
-	# no bank and never reaches this line.
-	rolled.basis = frame.basis.rotated(frame.basis.z.normalized(), deg_to_rad(bank))
-	return rolled
-
-
-## Signed curvature from the change in heading, then a bank that reaches
-## bank_max at full_bank_radius and eases off as the turn widens.
+## The road's cross-section at one point, with the inside of a tight bend pulled
+## in.
 ##
-## The sign is measured, not derived: the first build banked every corner
-## outward, which is precisely the direction that throws the ball off. Checked
-## by confirming the road's inner edge ends up the lower one.
-func _bank_at(offset: float, length: float, frame: Transform3D) -> float:
-	var before := curve.sample_baked(maxf(offset - BANK_STEP, 0.0))
-	var here := curve.sample_baked(offset)
-	var after := curve.sample_baked(minf(offset + BANK_STEP, length))
-	var incoming := (here - before).normalized()
-	var outgoing := (after - here).normalized()
-	# Heading change spans 2 * BANK_STEP, not BANK_STEP. Dividing by the wrong
-	# one doubled every curvature, so full_bank_radius bit at twice the radius
-	# it claims to.
-	var signed_curvature := (outgoing - incoming).dot(frame.basis.x) / (2.0 * BANK_STEP)
-	if absf(signed_curvature) < 0.000001:
-		return 0.0
-	var strength := clampf(_full_bank_radius * absf(signed_curvature), 0.0, 1.0)
-	var bank := -_bank_max * strength * signf(signed_curvature)
-	# Nearly straight road has nearly no curvature left, and the sign of what
-	# remains is noise. A degree of bank flickering about does nothing except
-	# twist the surface, so anything under the deadband is snapped away.
-	return 0.0 if absf(bank) < _bank_deadband else bank
-
-
-func _slab_ring(frame: Transform3D) -> PackedVector3Array:
+## A bend tighter than the road is wide sweeps its inner edge back through
+## itself: the surface folds, the mesh turns inside out, and the ball falls
+## through. Narrowing the inside of that corner is the way out — and it is what
+## a real road does anyway, since the inside of a hairpin is a shoulder rather
+## than full width. Shortening the inner edge costs a little grip exactly where
+## the ball is being pushed outward regardless.
+func _slab_ring(frame: Transform3D, offset: float, length: float) -> PackedVector3Array:
+	var narrowing := _inner_narrowing(offset, length, frame)
 	var ring := PackedVector3Array()
 	for corner in PROFILE:
-		ring.append(frame * Vector3(
-				corner.x * _half_width, corner.y * _thickness, corner.z))
+		var x := _edge_x(corner.x, narrowing)
+		ring.append(frame * Vector3(x, corner.y * _thickness, corner.z))
 	return ring
+
+
+## How much the inside of the bend is pulled in here (0 to 1), and which side the
+## inside is (+1 or -1). Both the road and its wall read this, so the barrier
+## stays on the edge the surface actually has rather than the one it would have
+## had at full width.
+func _inner_narrowing(offset: float, length: float, frame: Transform3D) -> Dictionary:
+	var lateral := _lateral_curvature(offset, length, frame)
+	if absf(lateral) < 0.000001:
+		return {"amount": 0.0, "side": 0.0}
+	var room := maxf(1.0 / absf(lateral) - INNER_MARGIN, 0.0)
+	if room >= _half_width:
+		return {"amount": 0.0, "side": 0.0}
+	return {"amount": (_half_width - room) / _half_width, "side": signf(lateral)}
+
+
+## Where a lateral offset lands once the inside of a bend has been pulled in.
+func _edge_x(offset_ratio: float, narrowing: Dictionary) -> float:
+	var amount: float = narrowing["amount"]
+	if amount > 0.0 and signf(offset_ratio) == float(narrowing["side"]):
+		return offset_ratio * _half_width * (1.0 - amount)
+	return offset_ratio * _half_width
+
+
+## Signed lateral curvature: which way the road is turning, and how hard. Its
+## sign says which side is the inside of the bend.
+func _lateral_curvature(offset: float, length: float, frame: Transform3D) -> float:
+	var before := curve.sample_baked(maxf(offset - WIDTH_STEP, 0.0))
+	var here := curve.sample_baked(offset)
+	var after := curve.sample_baked(minf(offset + WIDTH_STEP, length))
+	var incoming := (here - before).normalized()
+	var outgoing := (after - here).normalized()
+	# The heading change spans 2 * WIDTH_STEP of road, not WIDTH_STEP.
+	return (outgoing - incoming).dot(frame.basis.x) / (2.0 * WIDTH_STEP)
 
 
 ## The wall's cross-section at one point, in world units. Every corner is
 ## scaled out of the road's edge by how present the wall is there, so an absent
 ## wall collapses to a point ON the surface and a wall rises out of the road
 ## rather than appearing beside it with a free edge for the ball to catch.
-func _wall_ring(frame: Transform3D, side: int, along: float, length: float) -> PackedVector3Array:
+func _wall_ring(frame: Transform3D, side: int, along: float, length: float,
+		narrowing: Dictionary) -> PackedVector3Array:
 	var span := _wall_at(side, along, length)
 	var present: float = span["present"]
-	var base := Vector3(float(side) * _half_width, 0.0, 0.0)
+	var base := Vector3(_edge_x(float(side), narrowing), 0.0, 0.0)
 	var corners := [
 		base,
 		base + Vector3(0.0, span["height"], 0.0),

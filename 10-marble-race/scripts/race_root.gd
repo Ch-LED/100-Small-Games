@@ -32,7 +32,9 @@ func show_menu() -> void:
 	_stage.add_child(screen)
 	screen.configure(_cfg)
 	screen.start_pressed.connect(show_level_select)
-	screen.quit_pressed.connect(GameRouter.quit_app)
+	# The only way off the title screen is back to the hub, on Esc and on the
+	# button alike. Shutting the application down from inside a game is the
+	# hub's call, not this one's.
 	screen.back_pressed.connect(GameRouter.back_to_hub)
 
 

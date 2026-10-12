@@ -27,6 +27,7 @@ static func load_all() -> Dictionary:
 			"turn_boost": file.get_value("ball", "turn_boost", 1.0),
 			"min_turn_speed": file.get_value("ball", "min_turn_speed", 1.0),
 			"max_speed": file.get_value("ball", "max_speed", 34.0),
+			"downforce_coefficient": file.get_value("ball", "downforce_coefficient", 0.01),
 		},
 		"camera": {
 			"distance": file.get_value("camera", "distance", 7.0),
@@ -38,6 +39,8 @@ static func load_all() -> Dictionary:
 			"mouse_sensitivity": file.get_value("camera", "mouse_sensitivity", 0.0022),
 			"align_distance": file.get_value("camera", "align_distance", 8.0),
 			"align_damp": file.get_value("camera", "align_damp", 3.0),
+			"heading_damp": file.get_value("camera", "heading_damp", 5.0),
+			"heading_max_turn": file.get_value("camera", "heading_max_turn", 2.5),
 		},
 		"play": {
 			"fall_margin": file.get_value("play", "fall_margin", 8.0),
@@ -54,9 +57,6 @@ static func load_all() -> Dictionary:
 			"wall_thickness": file.get_value("track", "wall_thickness", 0.35),
 			"wall_ramp": file.get_value("track", "wall_ramp", 5.0),
 			"debug_color": _color(file, "track", "debug_color", Color("FFE94A")),
-			"bank_max": file.get_value("track", "bank_max", 12.0),
-			"full_bank_radius": file.get_value("track", "full_bank_radius", 40.0),
-			"bank_deadband": file.get_value("track", "bank_deadband", 1.5),
 			"start_t": file.get_value("track", "start_t", 0.02),
 			"finish_t": file.get_value("track", "finish_t", 0.97),
 			"marker_span": file.get_value("track", "marker_span", 0.012),

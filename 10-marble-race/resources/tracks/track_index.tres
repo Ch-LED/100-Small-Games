@@ -74,21 +74,21 @@ walls = Array[TrackWall]([SubResource("Wall_01_left"), SubResource("Wall_01_righ
 [sub_resource type="Resource" id="Info_02"]
 script = ExtResource("2_info")
 id = "track_02"
-display_name = "第二赛道 · 大回转"
+display_name = "第二赛道 · 螺旋"
 curve = ExtResource("5_curve2")
 walls = Array[TrackWall]([SubResource("Wall_02_left"), SubResource("Wall_02_right")])
 
 [sub_resource type="Resource" id="Info_03"]
 script = ExtResource("2_info")
 id = "track_03"
-display_name = "第三赛道 · 连续弯"
+display_name = "第三赛道 · 双回环"
 curve = ExtResource("6_curve3")
 walls = Array[TrackWall]([SubResource("Wall_03_left"), SubResource("Wall_03_right")])
 
 [sub_resource type="Resource" id="Info_04"]
 script = ExtResource("2_info")
 id = "track_04"
-display_name = "第四赛道 · 上下坡"
+display_name = "第四赛道 · 发夹弯"
 curve = ExtResource("7_curve4")
 walls = Array[TrackWall]([SubResource("Wall_04_left"), SubResource("Wall_04_right")])
 

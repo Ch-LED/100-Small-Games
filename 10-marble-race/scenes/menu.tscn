@@ -45,7 +45,7 @@ offset_bottom = 452.0
 grow_horizontal = 2
 text = "START"
 
-[node name="Quit" type="Button" parent="."]
+[node name="Back" type="Button" parent="."]
 layout_mode = 0
 anchor_left = 0.5
 anchor_right = 0.5
@@ -54,4 +54,4 @@ offset_top = 470.0
 offset_right = 170.0
 offset_bottom = 530.0
 grow_horizontal = 2
-text = "QUIT"
+text = "BACK"

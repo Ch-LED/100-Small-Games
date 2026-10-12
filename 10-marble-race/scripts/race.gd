@@ -38,6 +38,9 @@ var _base_message := ""
 ## False until the ball has crossed the start line. The clock does not run
 ## before that, so the run is timed from the line and not from the keypress.
 var _clock_armed := false
+## The see-through box drawn around the ball, showing the frame the camera and
+## the steering share. Purely a view of a calculation; nothing collides with it.
+var _frame_box: MeshInstance3D = null
 var _cheat := false
 var _super := false
 var _clock := 0.0
@@ -75,7 +78,40 @@ func _ready() -> void:
 	_restart_delay = float(_cfg.play.restart_delay)
 	_finish_pause = float(_cfg.play.finish_pause)
 	_enter_ready()
+	_build_frame_box()
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+## A faint box around the ball showing the frame the camera — and the steering —
+## work in. It exists because a sphere has no "forward": every orientation of a
+## ball looks the same, so the direction the view follows cannot come from the
+## ball and has to be worked out from the road (see camera_rig). That makes it an
+## invisible thing deciding how the whole game looks, which is exactly the sort
+## of thing worth drawing. The box lies on the road like a little car: its up is
+## the road's normal, its forward is the way the ball is going, and it rolls
+## right round with the surface on a corkscrew.
+##
+## No collision of any kind — it is a picture of a calculation, not a thing.
+func _build_frame_box() -> void:
+	# A slab rather than a cube: flatter than it is wide. From behind, a cube's
+	# faces all look alike and it is hard to read which way it is pointing; a
+	# slab lying on the road shows its attitude at a glance.
+	var size: float = float(_cfg.ball.radius) * 2.0
+	var box := BoxMesh.new()
+	box.size = Vector3(size * 1.7, size * 0.8, size * 1.7)
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color(0.35, 0.85, 1.0, 0.22)
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_frame_box = MeshInstance3D.new()
+	_frame_box.name = "BallFrame"
+	_frame_box.mesh = box
+	_frame_box.material_override = material
+	_frame_box.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# Off until asked for, on the P overlay. It is a reading, not scenery.
+	_frame_box.visible = false
+	add_child(_frame_box)
 
 
 func _exit_tree() -> void:
@@ -89,17 +125,29 @@ func _exit_tree() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	# One lookup of the road, feeding the two things that need its plane: the
-	# ball's roll axis, and the camera's pitch clamp.
+	# One lookup of the road, feeding everything that needs it: the ball's roll
+	# axis, which way the road runs here, and the frame the camera and the
+	# steering are both built in. The frame is handed over before either basis is
+	# read, so the two cannot disagree within a frame.
 	var road := _track.frame_near(_ball.global_position)
 	var up: Vector3 = road.basis.y
 	_ball.surface_normal = up
 	_ball.road_point = road.origin
 	_ball.has_road = true
+	# Airborne is measured as CLEARANCE from the surface: how far the ball is off
+	# the road, not how far it is from the centreline. Distance to the centreline
+	# reads one ball radius while the ball is sitting on the road, so a threshold
+	# on that number is a threshold on nothing — which is why the old value was
+	# 8 m and why 8 m was never reached.
+	var clearance := _ball.global_position.distance_to(road.origin) \
+			- float(_cfg.ball.radius)
+	_camera_rig.aim_frame(up if clearance < _align_distance else Vector3.UP,
+			_track.forward_near(_ball.global_position))
 	_ball.steering_basis = _camera_rig.get_steering_basis()
 	_ball.look_basis = _camera_rig.get_look_basis()
-	var to_road := _ball.global_position.distance_to(road.origin)
-	_camera_rig.aim_up(up if to_road < _align_distance else Vector3.UP)
+	if _frame_box != null:
+		_frame_box.global_transform = Transform3D(
+				_camera_rig.get_frame(), _ball.global_position)
 	_advance(delta)
 
 
@@ -226,6 +274,10 @@ func _enter_ready() -> void:
 	_clock = 0.0
 	_waited = 0.0
 	_hold_on_the_line()
+	# Put the camera where it belongs rather than letting it ease in from
+	# wherever the last run left it. Every restart is a fresh run and should
+	# frame the ball the same way the first one did.
+	_camera_rig.snap_to_target()
 	_hud.set_time(0.0)
 	_celebration.stop()
 	_clock_armed = false
@@ -272,7 +324,11 @@ func _enter_finished() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("debug_toggle"):
+		# Both are readings of the same kind: what the collision geometry looks
+		# like, and what the camera's frame looks like. Neither changes play.
 		_track.toggle_debug()
+		if _frame_box != null:
+			_frame_box.visible = not _frame_box.visible
 	if event.is_action_pressed("cheat_toggle"):
 		_cheat = not _cheat
 		_apply_cheats()

@@ -252,7 +252,17 @@ func _apply_contact_friction(state: PhysicsDirectBodyState3D) -> void:
 		return
 	var inertia := 0.4 * mass * radius * radius
 	var grip := 1.0 / (1.0 / mass + radius * radius / inertia)
-	var limit: float = _cfg.friction * mass * state.total_gravity.length() * state.step
+	# Traction ceiling: mu * (weight + downforce). The weight half is the rule
+	# Jolt was applying anyway; the downforce half is the ball's wings, growing
+	# with the square of speed so a fast ball holds a line a slow one cannot.
+	#
+	# It enters here rather than as a force pushing the ball at the road because
+	# the road is an analytic constraint — the ball is already held exactly one
+	# radius off the surface, so a push would have nothing to do. What downforce
+	# buys a real car is grip, and this is where this one's grip is decided.
+	var weight := mass * state.total_gravity.length()
+	var downforce: float = _cfg.downforce_coefficient * state.linear_velocity.length_squared()
+	var limit: float = _cfg.friction * (weight + downforce) * state.step
 	var impulse := minf(speed * grip, limit)
 	var push := -tangent / speed * impulse
 	state.linear_velocity += push / mass
