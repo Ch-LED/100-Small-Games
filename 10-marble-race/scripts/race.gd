@@ -10,6 +10,21 @@ signal finished(track_id: String, seconds: float)
 ## back out to the track list, the same place the pause menu would offer.
 signal back_pressed
 
+## Metres of line drawn per unit of each readout, so arrows of very different
+## magnitudes stay legible next to each other.
+const SPEED_SCALE := 0.15
+const TORQUE_SCALE := 0.3
+const FORCE_SCALE := 0.15
+## Overlay colours. Yellow belongs to the collision wireframe and is not reused.
+const SPEED_COLOR := Color("6BFF8F")
+const TORQUE_COLOR := Color("FF6B6B")
+const FORCE_COLOR := Color("6BB5FF")
+## What the frame box turns when the ball is off the road: the one state where
+## the frame is being held rather than followed. The alpha is baked into the
+## constants so the box can be recoloured by assignment alone.
+const AIRBORNE_COLOR := Color(1.0, 0.60, 0.24, 0.22)
+const FRAME_COLOR := Color(0.35, 0.85, 1.0, 0.22)
+
 enum State { READY, RUNNING, FALLEN, FINISHED }
 
 @onready var _ball: MarbleBall = $Ball
@@ -41,6 +56,9 @@ var _clock_armed := false
 ## The see-through box drawn around the ball, showing the frame the camera and
 ## the steering share. Purely a view of a calculation; nothing collides with it.
 var _frame_box: MeshInstance3D = null
+## The three arrows drawn from the ball under P: how fast it is going, what is
+## turning it, and what is pushing it. All read off the ball each frame.
+var _overlay: MeshInstance3D = null
 var _cheat := false
 var _super := false
 var _clock := 0.0
@@ -79,6 +97,7 @@ func _ready() -> void:
 	_finish_pause = float(_cfg.play.finish_pause)
 	_enter_ready()
 	_build_frame_box()
+	_build_overlay()
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
@@ -114,6 +133,47 @@ func _build_frame_box() -> void:
 	add_child(_frame_box)
 
 
+## Three arrows from the ball, drawn under P: where it is going, what is turning
+## it, and what is pushing it. Kept as one mesh rebuilt each frame — an overlay
+## of a handful of lines is cheaper to redraw than to keep in step with a body
+## that moves every step.
+func _build_overlay() -> void:
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.vertex_color_use_as_albedo = true
+	_overlay = MeshInstance3D.new()
+	_overlay.name = "BallOverlay"
+	_overlay.mesh = ImmediateMesh.new()
+	_overlay.material_override = material
+	_overlay.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_overlay.visible = false
+	add_child(_overlay)
+
+
+func _update_overlay() -> void:
+	if _overlay == null or not _overlay.visible:
+		return
+	var mesh := _overlay.mesh as ImmediateMesh
+	mesh.clear_surfaces()
+	mesh.surface_begin(Mesh.PRIMITIVE_LINES)
+	_arrow(_ball.global_position, _ball.linear_velocity, SPEED_SCALE, SPEED_COLOR)
+	_arrow(_ball.global_position, _ball.applied_torque, TORQUE_SCALE, TORQUE_COLOR)
+	_arrow(_ball.global_position, _ball.applied_force, FORCE_SCALE, FORCE_COLOR)
+	mesh.surface_end()
+
+
+## One line from the ball along a vector, scaled. Zero vectors draw nothing
+## rather than a dot, so an idle readout leaves the screen alone.
+func _arrow(from: Vector3, vector: Vector3, scale: float, colour: Color) -> void:
+	if vector.length_squared() < 0.000001:
+		return
+	var mesh := _overlay.mesh as ImmediateMesh
+	mesh.surface_set_color(colour)
+	mesh.surface_add_vertex(from)
+	mesh.surface_set_color(colour)
+	mesh.surface_add_vertex(from + vector * scale)
+
+
 func _exit_tree() -> void:
 	# The mouse is captured while a level is on screen and the menus are
 	# mouse-driven, so letting go of it here is what stops the player being
@@ -134,20 +194,28 @@ func _physics_process(delta: float) -> void:
 	_ball.surface_normal = up
 	_ball.road_point = road.origin
 	_ball.has_road = true
-	# Airborne is measured as CLEARANCE from the surface: how far the ball is off
-	# the road, not how far it is from the centreline. Distance to the centreline
-	# reads one ball radius while the ball is sitting on the road, so a threshold
-	# on that number is a threshold on nothing — which is why the old value was
-	# 8 m and why 8 m was never reached.
-	var clearance := _ball.global_position.distance_to(road.origin) \
+	# Airborne is measured ALONG the normal, not as a straight-line distance.
+	# The straight-line version counts how far the ball has travelled sideways
+	# within the road's own plane as if it were height, so a ball belting round
+	# the inside of a loop — pinned to the surface the whole way, but covering
+	# ground fast — reads as metres in the air and the camera plane gets knocked
+	# back to world-up on the one corner that most needs it to follow.
+	var above := (_ball.global_position - road.origin).dot(up) \
 			- float(_cfg.ball.radius)
-	_camera_rig.aim_frame(up if clearance < _align_distance else Vector3.UP,
+	_camera_rig.aim_frame(up if above < _align_distance else Vector3.UP,
 			_track.forward_near(_ball.global_position))
 	_ball.steering_basis = _camera_rig.get_steering_basis()
 	_ball.look_basis = _camera_rig.get_look_basis()
 	if _frame_box != null:
 		_frame_box.global_transform = Transform3D(
 				_camera_rig.get_frame(), _ball.global_position)
+		# Orange while the frame is only being held rather than followed — the
+		# one state where what the box shows and what the road does come apart.
+		var box := _frame_box.material_override as StandardMaterial3D
+		if box != null:
+			box.albedo_color = (AIRBORNE_COLOR if above >= _align_distance
+					else FRAME_COLOR)
+	_update_overlay()
 	_advance(delta)
 
 
@@ -326,9 +394,17 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("debug_toggle"):
 		# Both are readings of the same kind: what the collision geometry looks
 		# like, and what the camera's frame looks like. Neither changes play.
+		# The track's overlay and this level's two additions go up and down
+		# together — they are all readings of the same run, and a switch that
+		# shows half of them is worse than no switch. Read the state back after
+		# toggling rather than assuming it, which is how these came out inverted
+		# from the wireframe the first time.
 		_track.toggle_debug()
+		var shown := _track.is_debug_visible()
 		if _frame_box != null:
-			_frame_box.visible = not _frame_box.visible
+			_frame_box.visible = shown
+		if _overlay != null:
+			_overlay.visible = shown
 	if event.is_action_pressed("cheat_toggle"):
 		_cheat = not _cheat
 		_apply_cheats()

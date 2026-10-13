@@ -221,7 +221,14 @@ func _follow_to(delta: float) -> void:
 		# Nothing to steer by yet — the plane has not settled. Coming back next
 		# frame beats picking an arbitrary direction and being stuck with it.
 		return
-	if _heading != Vector3.ZERO and road.dot(_heading) < 0.0:
+	# The sign is taken from where the frame already points, but only when the
+	# road is pointing clearly the other way — better than a half turn apart.
+	# Testing for merely "more than a right angle" was wrong: the heading chases
+	# the road under a rate limit, so on a fast tight corner it legitimately
+	# falls a long way behind, crosses 90 degrees, and gets flipped a half turn
+	# by its own safety check. That is the camera spinning round on the third
+	# bend of track_04.
+	if _heading != Vector3.ZERO and road.dot(_heading) < -0.5:
 		road = -road
 	if _heading == Vector3.ZERO:
 		_heading = road

@@ -41,6 +41,13 @@ var coasting := false
 ## Last commanded drive direction, world space, for diagnostics and probes.
 var drive_direction := Vector3.ZERO
 
+## What was pushed on the ball this step and how hard: torque from the drive and
+## the brake, and every force that is not the road holding it up. Purely a
+## readout for the P overlay — nothing reads these back, and they are cleared at
+## the top of each step so a stale frame cannot be mistaken for a live one.
+var applied_torque := Vector3.ZERO
+var applied_force := Vector3.ZERO
+
 ## The one colour every game in this project marks the super cheat with. A
 ## constant rather than a config value, so it cannot drift game to game.
 const SUPER_COLOR := Color("00E676")
@@ -123,6 +130,8 @@ static func _checker_texture(cells: int, light: Color, dark: Color) -> ImageText
 
 
 func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
+	applied_torque = Vector3.ZERO
+	applied_force = state.total_gravity * mass
 	if _cfg.is_empty() or frozen:
 		return
 	var steer := _read_steer()
@@ -183,6 +192,7 @@ func _fly(state: PhysicsDirectBodyState3D, steer: Vector2) -> void:
 		drive_direction = Vector3.ZERO
 		return
 	drive_direction = aimed.normalized()
+	applied_force += drive_direction * float(cheat.flight_thrust)
 	state.apply_central_force(drive_direction * float(cheat.flight_thrust))
 	# Flight gets its own, much higher ceiling. The ground's cap is tuned to
 	# what a rolling ball can hold on a corner; a flying one has no corner to
@@ -231,6 +241,7 @@ func _ride_road(state: PhysicsDirectBodyState3D) -> void:
 		var gap := road_half_width - lateral
 		if gap < depth:
 			var force: float = cheat.edge_field_strength * (1.0 - maxf(gap, 0.0) / depth)
+			applied_force += -in_plane.normalized() * force
 			state.apply_central_force(-in_plane.normalized() * force)
 	# Back onto the surface, one radius up.
 	state.transform.origin = road_point + in_plane + surface_normal * float(_cfg.radius)
@@ -287,6 +298,7 @@ func _brake(state: PhysicsDirectBodyState3D) -> void:
 	var inertia := 0.4 * mass * float(_cfg.radius) * float(_cfg.radius)
 	var stopping := rate * inertia / state.step
 	var torque: float = minf(float(_cfg.brake_torque), stopping)
+	applied_torque -= spin.normalized() * torque
 	state.apply_torque(-spin.normalized() * torque)
 
 
@@ -307,6 +319,7 @@ func _apply_drive(state: PhysicsDirectBodyState3D, aimed: Vector3) -> void:
 	if axis.length_squared() < 0.000001:
 		return
 	var torque: float = _cfg.spin_torque * _turn_boost(state.linear_velocity)
+	applied_torque += axis.normalized() * torque
 	state.apply_torque(axis.normalized() * torque)
 
 

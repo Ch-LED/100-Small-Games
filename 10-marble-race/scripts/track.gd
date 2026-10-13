@@ -63,6 +63,9 @@ var _runoff_length := 24.0
 ## the back wall and the finish effects are all placed from one shared frame
 ## instead of three separate lookups that could drift apart.
 var _runoff_start := Transform3D.IDENTITY
+## The centreline overlay, made in code rather than placed in the scene: it is a
+## reading of the curve, and the curve is what the scene does not have.
+var _centerline: MeshInstance3D = null
 var _start_t := 0.02
 var _finish_t := 0.97
 var _marker_span := 0.012
@@ -219,12 +222,51 @@ func _build() -> void:
 	_debug.mesh = _wireframe(faces)
 	_debug.material_override = _debug_material()
 	_debug.visible = false
+	_centerline = MeshInstance3D.new()
+	_centerline.name = "Centerline"
+	_centerline.mesh = _centerline_mesh()
+	_centerline.material_override = _centerline_material()
+	_centerline.visible = false
+	add_child(_centerline)
 
 
 ## Toggling visibility rather than rebuilding: a MeshInstance's visible flag is
 ## the one switch that cannot be left showing a stale frame.
 func toggle_debug() -> void:
 	_debug.visible = not _debug.visible
+	if _centerline != null:
+		_centerline.visible = _debug.visible
+
+
+## Whether the overlay is up. The level keeps its own additions — the ball's
+## frame box and its arrows — on the same switch, and asking beats tracking a
+## second copy of the same flag.
+func is_debug_visible() -> bool:
+	return _debug.visible
+
+
+## The road's own centreline — the curve the ball actually follows. Drawn a hair
+## above the surface so the road does not swallow it, and NOT the same thing as
+## the collision wireframe beside it, which is the walls. When a corner looks
+## wrong, this is what says whether the route or the surface is at fault.
+func _centerline_mesh() -> ImmediateMesh:
+	var mesh := ImmediateMesh.new()
+	mesh.surface_begin(Mesh.PRIMITIVE_LINE_STRIP)
+	var length := curve.get_baked_length()
+	var steps := 480
+	for i in steps + 1:
+		var frame := curve.sample_baked_with_rotation(
+				length * float(i) / float(steps), true, true)
+		mesh.surface_add_vertex(frame.origin + frame.basis.y * 0.05)
+	mesh.surface_end()
+	return mesh
+
+
+func _centerline_material() -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.albedo_color = Color("4BD3FF")
+	return material
 
 
 ## Every collision triangle's three edges, lifted a hair along the triangle's
