@@ -1,12 +1,11 @@
 class_name MarbleCameraRig
 extends Node3D
-## Third-person follow camera driven by the mouse (technical spec 6).
+## Third-person follow camera whose frame is the road's own (technical spec 6).
 ##
 ## Its frame follows the ball's DIRECTION OF TRAVEL: forward means forward for
-## the ball, up means the road's normal. The mouse then works in that frame, so
-## "steer left" stays screen-left wherever the road goes. Two planes still hold
-## this together — the road's, which the race controller hands over, and the
-## ball's heading, which is worked out here from its motion.
+## the ball, up means the road's normal. The view is fixed within that frame —
+## the mouse does not steer it — so "steer left" stays screen-left wherever the
+## road goes, and the far side of a loop looks exactly like level ground.
 ##
 ## The reason it has to follow travel rather than a fixed world axis: the
 ## steering basis is built from this frame, and on a vertical stretch of road a
@@ -15,6 +14,10 @@ extends Node3D
 ##
 ## Note this follows the ball's LINEAR motion only. Following its spin is a
 ## different thing, and spec 6 rules it out.
+##
+## See DECISION_LOG 087. The mouse was taken off the view on 2026-10-14 and the
+## whole camera control question parked; what is here is deliberately the old
+## frame with the aiming removed, not a new design.
 
 ## How far the camera backs off from something it has run into, in metres.
 const PROBE_MARGIN := 0.4
@@ -25,7 +28,10 @@ const MIN_ABOVE := 0.6
 
 var _cfg: Dictionary = {}
 var _target: Node3D = null
+## Both are constants now, not inputs. Yaw moves only while the victory lap
+## turns the camera — nothing else has any business changing it.
 var _yaw := 0.0
+## Fixed at the configured angle; see configure().
 var _pitch := 0.0
 var _up := Vector3.UP
 var _wanted_up := Vector3.UP
@@ -36,8 +42,10 @@ var _heading := Vector3.ZERO
 ## Where the road itself points at the ball. Handed over every physics frame;
 ## the frame is followed along it in _follow_to().
 var _tangent := Vector3.FORWARD
-## While the ] flight mode is on the pitch limit comes off, so the view — and
-## with it the direction the ball is pushed — can point anywhere.
+## While the ] flight mode is on, the frame stops following the road. It has to:
+## the camera's yaw feeds the axes flight is pushed along, so a camera that kept
+## turning would steer the flight by itself. It used to lift the pitch limit as
+## well, back when the mouse could aim; a fixed view has no limit to lift.
 var _free_look := false
 var _orbit_remaining := 0.0
 var _orbit_rate := 0.0
@@ -46,7 +54,7 @@ var _orbit_rate := 0.0
 func configure(settings: Dictionary, target: Node3D) -> void:
 	_cfg = settings.camera
 	_target = target
-	_pitch = deg_to_rad(float(_cfg.pitch_max) * 0.35)
+	_pitch = deg_to_rad(float(_cfg.pitch))
 
 
 ## Everything the frame needs, once per physics frame: the plane the camera
@@ -75,7 +83,7 @@ func get_steering_basis() -> Basis:
 
 
 ## One slow lap around the ball when a run ends. It takes the yaw over
-## entirely while it lasts: the mouse is not in charge of a victory lap.
+## entirely while it lasts — the only thing in this rig that ever moves it.
 func celebrate(seconds: float) -> void:
 	_orbit_remaining = TAU
 	_orbit_rate = TAU / maxf(seconds, 0.01)
@@ -100,29 +108,6 @@ func get_frame() -> Basis:
 ## climb, and flight that cannot climb is not flight.
 func get_look_basis() -> Basis:
 	return global_transform.basis
-
-
-func _unhandled_input(event: InputEvent) -> void:
-	var motion := event as InputEventMouseMotion
-	if motion == null or _cfg.is_empty():
-		return
-	if _orbit_remaining > 0.0:
-		return
-	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
-		return
-	var sensitivity: float = _cfg.mouse_sensitivity
-	# Both are offsets within the follow frame now, not world angles. At yaw 0
-	# on a straight, heading is the road's forward, so this reproduces the old
-	# behaviour exactly.
-	_yaw -= motion.relative.x * sensitivity
-	_pitch += motion.relative.y * sensitivity
-	if _free_look:
-		var limit := deg_to_rad(89.0)
-		_pitch = clampf(_pitch, -limit, limit)
-	else:
-		_pitch = clampf(_pitch,
-				deg_to_rad(float(_cfg.pitch_min)),
-				deg_to_rad(float(_cfg.pitch_max)))
 
 
 func _physics_process(delta: float) -> void:
