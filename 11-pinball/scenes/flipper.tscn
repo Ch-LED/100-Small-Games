@@ -1,0 +1,18 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://11-pinball/scripts/flipper.gd" id="1_flipper"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_flipper"]
+albedo_color = Color(0.306, 0.804, 0.769, 1)
+roughness = 0.4
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_flipper"]
+material = SubResource("StandardMaterial3D_flipper")
+radius = 0.35
+height = 2.7
+
+[node name="Flipper" type="Node3D"]
+script = ExtResource("1_flipper")
+
+[node name="Mesh" type="MeshInstance3D" parent="."]
+mesh = SubResource("CapsuleMesh_flipper")

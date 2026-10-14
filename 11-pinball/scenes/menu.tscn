@@ -1,0 +1,41 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://11-pinball/scripts/menu.gd" id="1_menu"]
+
+[node name="Menu" type="Control"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_menu")
+
+[node name="Center" type="CenterContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Column" type="VBoxContainer" parent="Center"]
+theme_override_constants/separation = 26
+
+[node name="Title" type="Label" parent="Center/Column"]
+text = "PINBALL"
+horizontal_alignment = 1
+
+[node name="Best" type="Label" parent="Center/Column"]
+text = "BEST  0"
+horizontal_alignment = 1
+
+[node name="Start" type="Button" parent="Center/Column"]
+text = "START"
+
+[node name="Back" type="Button" parent="Center/Column"]
+text = "BACK TO HUB"
+
+[node name="Hint" type="Label" parent="Center/Column"]
+text = "SPACE OR CLICK TO START"
+horizontal_alignment = 1

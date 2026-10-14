@@ -1,0 +1,26 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://11-pinball/scripts/pinball_root.gd" id="1_root"]
+[ext_resource type="PackedScene" path="res://11-pinball/scenes/menu.tscn" id="2_menu"]
+[ext_resource type="PackedScene" path="res://11-pinball/scenes/table.tscn" id="3_table"]
+[ext_resource type="PackedScene" path="res://11-pinball/scenes/hud.tscn" id="4_hud"]
+[ext_resource type="PackedScene" path="res://11-pinball/scenes/pause_menu.tscn" id="5_pause"]
+[ext_resource type="Script" path="res://11-pinball/scripts/pinball_audio.gd" id="6_audio"]
+[ext_resource type="Script" path="res://11-pinball/scripts/save_store.gd" id="7_save"]
+
+[node name="PinballRoot" type="Node"]
+script = ExtResource("1_root")
+menu_scene = ExtResource("2_menu")
+table_scene = ExtResource("3_table")
+hud_scene = ExtResource("4_hud")
+pause_scene = ExtResource("5_pause")
+
+[node name="ScreenHolder" type="Node" parent="."]
+
+[node name="OverlayLayer" type="CanvasLayer" parent="."]
+
+[node name="Audio" type="Node" parent="."]
+script = ExtResource("6_audio")
+
+[node name="SaveStore" type="Node" parent="."]
+script = ExtResource("7_save")

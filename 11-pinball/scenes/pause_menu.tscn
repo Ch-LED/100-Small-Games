@@ -1,0 +1,42 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://11-pinball/scripts/pause_menu.gd" id="1_pause"]
+
+[node name="PauseMenu" type="CanvasLayer"]
+process_mode = 3
+layer = 2
+visible = false
+script = ExtResource("1_pause")
+
+[node name="Dim" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.031, 0.043, 0.071, 0.78)
+
+[node name="Center" type="CenterContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Column" type="VBoxContainer" parent="Center"]
+theme_override_constants/separation = 20
+
+[node name="Title" type="Label" parent="Center/Column"]
+text = "PAUSED"
+horizontal_alignment = 1
+
+[node name="Resume" type="Button" parent="Center/Column"]
+text = "RESUME"
+
+[node name="Restart" type="Button" parent="Center/Column"]
+text = "RESTART"
+
+[node name="Quit" type="Button" parent="Center/Column"]
+text = "QUIT TO MENU"
