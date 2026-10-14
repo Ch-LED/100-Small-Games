@@ -1,0 +1,79 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://12-tetris/scripts/play.gd" id="1_play"]
+[ext_resource type="Script" path="res://12-tetris/scripts/playfield.gd" id="2_field"]
+[ext_resource type="Script" path="res://12-tetris/scripts/tetris_input.gd" id="3_keys"]
+[ext_resource type="Script" path="res://12-tetris/scripts/hud.gd" id="4_hud"]
+[ext_resource type="Script" path="res://12-tetris/scripts/tetris_debug.gd" id="5_debug"]
+
+[node name="Play" type="Node2D"]
+script = ExtResource("1_play")
+
+[node name="Playfield" type="Node2D" parent="."]
+position = Vector2(380, 40)
+script = ExtResource("2_field")
+
+[node name="Ghost" type="TileMapLayer" parent="Playfield"]
+
+[node name="Board" type="TileMapLayer" parent="Playfield"]
+
+[node name="Frame" type="Line2D" parent="Playfield"]
+
+[node name="SidePanel" type="Node2D" parent="Playfield"]
+position = Vector2(360, 20)
+
+[node name="Hold" type="TileMapLayer" parent="Playfield/SidePanel"]
+
+[node name="Next0" type="TileMapLayer" parent="Playfield/SidePanel"]
+position = Vector2(0, 110)
+
+[node name="Next1" type="TileMapLayer" parent="Playfield/SidePanel"]
+position = Vector2(0, 186)
+
+[node name="Next2" type="TileMapLayer" parent="Playfield/SidePanel"]
+position = Vector2(0, 262)
+
+[node name="Next3" type="TileMapLayer" parent="Playfield/SidePanel"]
+position = Vector2(0, 338)
+
+[node name="Next4" type="TileMapLayer" parent="Playfield/SidePanel"]
+position = Vector2(0, 414)
+
+[node name="DebugLayer" type="Node2D" parent="Playfield"]
+script = ExtResource("5_debug")
+
+[node name="Stats" type="Control" parent="."]
+position = Vector2(40, 100)
+script = ExtResource("4_hud")
+
+[node name="ScoreLabel" type="Label" parent="Stats"]
+mouse_filter = 2
+
+[node name="ScoreValue" type="Label" parent="Stats"]
+mouse_filter = 2
+
+[node name="LevelLabel" type="Label" parent="Stats"]
+mouse_filter = 2
+
+[node name="LevelValue" type="Label" parent="Stats"]
+mouse_filter = 2
+
+[node name="LinesLabel" type="Label" parent="Stats"]
+mouse_filter = 2
+
+[node name="LinesValue" type="Label" parent="Stats"]
+mouse_filter = 2
+
+[node name="TimeLabel" type="Label" parent="Stats"]
+visible = false
+mouse_filter = 2
+
+[node name="TimeValue" type="Label" parent="Stats"]
+visible = false
+mouse_filter = 2
+
+[node name="EventValue" type="Label" parent="Stats"]
+mouse_filter = 2
+
+[node name="Keymap" type="Node" parent="."]
+script = ExtResource("3_keys")
