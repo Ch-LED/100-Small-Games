@@ -1,0 +1,53 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://13-sudoku/scripts/sudoku_play.gd" id="1_play"]
+[ext_resource type="Script" path="res://13-sudoku/scripts/sudoku_view.gd" id="2_view"]
+[ext_resource type="Script" path="res://13-sudoku/scripts/sudoku_hud.gd" id="3_hud"]
+[ext_resource type="Script" path="res://13-sudoku/scripts/sudoku_debug.gd" id="4_debug"]
+
+[node name="Play" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_play")
+
+[node name="Backdrop" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.031, 0.043, 0.078, 1)
+mouse_filter = 2
+
+[node name="Board" type="Control" parent="."]
+layout_mode = 0
+offset_right = 504.0
+offset_bottom = 504.0
+script = ExtResource("2_view")
+
+[node name="Hud" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("3_hud")
+
+[node name="Overlay" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("4_debug")
+
+[node name="PauseHolder" type="Node" parent="."]
