@@ -1,0 +1,20 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://17-bejeweled/scripts/bejeweled_root.gd" id="1_root"]
+[ext_resource type="Script" path="res://17-bejeweled/scripts/bejeweled_audio.gd" id="2_audio"]
+[ext_resource type="Script" path="res://17-bejeweled/scripts/bejeweled_save.gd" id="3_save"]
+[ext_resource type="Script" path="res://17-bejeweled/scripts/bejeweled_input.gd" id="4_input"]
+
+[node name="Bejeweled" type="Node"]
+script = ExtResource("1_root")
+
+[node name="ScreenHolder" type="Node" parent="."]
+
+[node name="Audio" type="Node" parent="."]
+script = ExtResource("2_audio")
+
+[node name="Save" type="Node" parent="."]
+script = ExtResource("3_save")
+
+[node name="InputTranslator" type="Node" parent="."]
+script = ExtResource("4_input")
