@@ -18,9 +18,40 @@ func _initialize() -> void:
 	_check_solving(rng)
 	_check_net(rng)
 	_check_net_generator(rng)
+	_check_shift_solvable(rng)
 	_check_save()
 	print("\n%d passed, %d failed" % [_passed, _failed])
 	quit(1 if _failed > 0 else 0)
+
+
+## The shift mode is only fair if every deal can be undone, and what makes that
+## true is that the shuffle is a run of the player's own move -- replaying it
+## backwards is a solution. This walks the claim rather than trusting it.
+##
+## It is worth walking because the first version got it wrong: it shuffled rows
+## as well as columns, and no amount of column dragging could undo a row shift,
+## so deals came out unsolvable (DECISION_LOG 102).
+func _check_shift_solvable(rng: RandomNumberGenerator) -> void:
+	var net := PipesNet.new()
+	net.setup(6, 6)
+	PipesNetGenerator.build(rng, net, {"colors": 1}, PipesNetGenerator.Shuffle.SHIFT, 0)
+	_check("an unshuffled board is joined", net.is_joined())
+
+	var moves: Array = []
+	for _index in 24:
+		var column := rng.randi_range(0, net.cols - 1)
+		var amount := rng.randi_range(1, net.rows - 1)
+		if rng.randi_range(0, 1) == 1:
+			amount = -amount
+		if net.shift_line(column, amount):
+			moves.append([column, amount])
+	_check("a column shuffle un-solves the board", not net.is_joined())
+	_check("the shuffle actually moved something", not moves.is_empty())
+
+	for step in range(moves.size() - 1, -1, -1):
+		var move: Array = moves[step]
+		net.shift_line(move[0], -move[1])
+	_check("replaying the shuffle backwards joins it again", net.is_joined())
 
 
 ## Records are per mode and per level, and the level can be one that has never
@@ -108,32 +139,52 @@ func _check_net(_rng: RandomNumberGenerator) -> void:
 	gap_net.set_piece(1, PipesNet.EMPTY)
 	_check("taking a middle piece out leaves two loose ends", not gap_net.is_joined())
 
-	# Shifting a line wraps rather than dropping anything, which is what makes
-	# it reversible.
+	# Shifting a column wraps rather than dropping anything, which is what
+	# makes it reversible. Column 1 holds 1,4,7; shifting it two down brings
+	# 4 and 7 to the top and wraps 1 to the bottom.
 	var shift := PipesNet.new()
 	shift.setup(3, 3)
 	for cell in 9:
 		shift.set_piece(cell, cell)
 	var snapshot := shift.pieces.duplicate()
-	# Row 1 holds 3,4,5. Shifting it two to the left brings 4 and 5 down and
-	# wraps 3 around to the end.
-	shift.shift_line(1, true, 2)
-	_check("a shift moves the whole row",
-			shift.piece_at(shift.index_of(1, 0)) == 4
-			and shift.piece_at(shift.index_of(1, 1)) == 5
-			and shift.piece_at(shift.index_of(1, 2)) == 3)
-	_check("nothing falls off a shifted row", shift.piece_count() == 9)
-	_check("shifting back restores the row", shift.shift_line(1, true, -2)
+	shift.shift_line(1, 2)
+	_check("a shift moves the whole column",
+			shift.piece_at(shift.index_of(0, 1)) == 4
+			and shift.piece_at(shift.index_of(1, 1)) == 7
+			and shift.piece_at(shift.index_of(2, 1)) == 1)
+	_check("nothing falls off a shifted column", shift.piece_count() == 9)
+	_check("shifting back restores it", shift.shift_line(1, -2)
 			and shift.pieces == snapshot)
-	# Column 0 holds 0,3,6. Shifting it up one brings 6,0,3.
-	shift.shift_line(0, false, 1)
-	_check("a column shifts too",
-			shift.piece_at(shift.index_of(0, 0)) == 6
-			and shift.piece_at(shift.index_of(1, 0)) == 0)
-	_check("shifting the column back restores it", shift.shift_line(0, false, -1)
-			and shift.pieces == snapshot)
-	_check("shifting a whole line length is no shift",
-			not shift.shift_line(1, true, 3) and shift.pieces == snapshot)
+	_check("shifting a whole column length is no shift",
+			not shift.shift_line(1, 3) and shift.pieces == snapshot)
+	# A wall holds its place; a column that shifted around one would tear it.
+	shift.pinned[shift.index_of(1, 1)] = 1
+	_check("a column with a wall refuses to shift", not shift.shift_line(1, 1))
+	shift.pinned[shift.index_of(1, 1)] = 0
+
+	# Colour is a property of the floor, so two runs of different colours that
+	# touch do not join even when their openings line up.
+	var two := PipesNet.new()
+	two.setup(1, 2)
+	two.set_piece(0, PipesNet.EAST)
+	two.set_piece(1, PipesNet.WEST)
+	two.colors[0] = 0
+	two.colors[1] = 1
+	_check("two colours facing each other do not join", not two.is_joined())
+	two.colors[1] = 0
+	_check("the same colour facing itself joins", two.is_joined())
+	two.set_piece(1, PipesNet.BLANK)
+	_check("a pipe facing a pipe-less block is loose", not two.is_joined())
+
+	# An overpass carries two channels that never meet, and both turn together.
+	var overpass := PipesNet.NORTH | PipesNet.SOUTH \
+			| (PipesNet.EAST << 4) | (PipesNet.WEST << 4)
+	_check("an overpass has four openings", PipesNet.opening_count(overpass) == 4)
+	_check("an overpass is recognised", PipesNet.is_overpass(overpass))
+	_check("both channels turn with the piece",
+			PipesNet.turn_cw(overpass) == (PipesNet.EAST | PipesNet.WEST
+			| (PipesNet.SOUTH << 4) | (PipesNet.NORTH << 4)))
+	_check("a plain piece is not an overpass", not PipesNet.is_overpass(PipesNet.NORTH))
 
 	# Sliding: one step in, one step back. Sliding far is the player's move.
 	var slide := PipesNet.new()
@@ -165,9 +216,11 @@ func _check_net_generator(rng: RandomNumberGenerator) -> void:
 			net.setup(6, 6)
 			# A sliding board needs somewhere to slide to or the wreck move
 			# does nothing and the deal comes out already solved.
-			var gaps := 5 if kind == PipesNetGenerator.Shuffle.SLIDE else 0
+			var recipe := {"gaps": 0, "blanks": 0, "walls": 0, "colors": 1}
+			if kind == PipesNetGenerator.Shuffle.SLIDE:
+				recipe = {"gaps": 5, "blanks": 2, "walls": 1, "colors": 1}
 			var started := Time.get_ticks_msec()
-			var solution := PipesNetGenerator.build(rng, net, gaps, kind, 40)
+			var solution := PipesNetGenerator.build(rng, net, recipe, kind, 40)
 			spent += Time.get_ticks_msec() - started
 			if solution.is_empty():
 				continue
@@ -175,10 +228,15 @@ func _check_net_generator(rng: RandomNumberGenerator) -> void:
 			var answer := PipesNet.new()
 			answer.setup(net.rows, net.cols)
 			answer.pieces = solution.duplicate()
+			answer.colors = net.colors.duplicate()
+			answer.pinned = net.pinned.duplicate()
 			_check("mode %d: the answer is joined" % kind, answer.is_joined())
 			_check("mode %d: the deal is not already solved" % kind, not net.is_joined())
-			_check("mode %d: gaps are where they should be" % kind,
-					net.piece_count() + gaps == net.cell_count())
+			# Every cell holds something except the gaps -- and a pipe-less
+			# block is something, so the blanks come back out of the count.
+			_check("mode %d: the board holds what the recipe asked for" % kind,
+					net.piece_count() == net.cell_count() - int(recipe["gaps"])
+					+ int(recipe["blanks"]))
 		print("  shuffle %d: %d/8 dealt, %.1f ms each" % [kind, dealt, float(spent) / 8.0])
 		_check("mode %d deals every time" % kind, dealt == 8)
 

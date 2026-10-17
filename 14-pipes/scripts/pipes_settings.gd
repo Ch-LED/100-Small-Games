@@ -31,8 +31,12 @@ var dim_text := Color("7E8CA8")
 var pipe_color := Color("8AA0C8")
 var joined_pipe_color := Color("4BD3FF")
 var pinned_pipe_color := Color("4A5A78")
+var blank_color := Color("3A4660")
 var pipe_width := 0.34
 var hover_alpha := 10
+var col_highlight_color := Color("FFD54F")
+var col_highlight_alpha := 0.30
+var arrow_color := Color("5A6E9E")
 
 var palette: Array[Color] = []
 
@@ -41,7 +45,14 @@ var pairs: Array[int] = [4, 5, 5, 6, 6, 7, 7, 8, 8, 9]
 var min_run := 3
 
 var shuffle_steps: Array[int] = [10, 14, 18, 23, 28, 34, 40, 47, 54, 62]
+var slide_sides: Array[int] = [4, 4, 5, 5, 6, 6, 7, 7, 8, 9]
 var slide_gaps: Array[int] = [3, 3, 4, 4, 5, 5, 6, 6, 7, 7]
+var slide_blanks: Array[int] = [0, 0, 1, 1, 2, 2, 3, 3, 4, 4]
+var slide_walls: Array[int] = [0, 0, 0, 0, 0, 1, 1, 2, 2, 3]
+var slide_steps: Array[int] = [30, 40, 55, 70, 90, 110, 130, 150, 175, 200]
+var turn_colors: Array[int] = [1, 1, 2, 2, 2, 3, 3, 3, 3, 4]
+var turn_gaps: Array[int] = [0, 0, 1, 1, 2, 2, 2, 3, 3, 3]
+var shift_gaps: Array[int] = [2, 2, 3, 3, 4, 4, 5, 5, 6, 6]
 
 var draw_freq := 440.00
 var join_freq := 587.33
@@ -84,8 +95,13 @@ func load_from(path: String) -> void:
 	pipe_color = _color(file, "net", "pipe_color", pipe_color)
 	joined_pipe_color = _color(file, "net", "joined_pipe_color", joined_pipe_color)
 	pinned_pipe_color = _color(file, "net", "pinned_pipe_color", pinned_pipe_color)
+	blank_color = _color(file, "net", "blank_color", blank_color)
 	pipe_width = float(file.get_value("net", "pipe_width", pipe_width))
 	hover_alpha = int(file.get_value("net", "hover_alpha", hover_alpha))
+	col_highlight_color = _color(file, "net", "col_highlight_color", col_highlight_color)
+	col_highlight_alpha = float(file.get_value("net", "col_highlight_alpha",
+			col_highlight_alpha))
+	arrow_color = _color(file, "net", "arrow_color", arrow_color)
 
 	_fill_palette(_colors(file, "colors", "palette"))
 
@@ -94,7 +110,14 @@ func load_from(path: String) -> void:
 	min_run = int(file.get_value("levels", "min_run", min_run))
 
 	shuffle_steps = _ints(file, "net_levels", "shuffle_steps", shuffle_steps)
+	slide_sides = _ints(file, "net_levels", "slide_sides", slide_sides)
 	slide_gaps = _ints(file, "net_levels", "slide_gaps", slide_gaps)
+	slide_blanks = _ints(file, "net_levels", "slide_blanks", slide_blanks)
+	slide_walls = _ints(file, "net_levels", "slide_walls", slide_walls)
+	slide_steps = _ints(file, "net_levels", "slide_steps", slide_steps)
+	turn_colors = _ints(file, "net_levels", "turn_colors", turn_colors)
+	turn_gaps = _ints(file, "net_levels", "turn_gaps", turn_gaps)
+	shift_gaps = _ints(file, "net_levels", "shift_gaps", shift_gaps)
 
 	draw_freq = float(file.get_value("audio", "draw_freq", draw_freq))
 	join_freq = float(file.get_value("audio", "join_freq", join_freq))
@@ -130,10 +153,46 @@ func steps_for(level: int) -> int:
 	return shuffle_steps[level]
 
 
-func gaps_for(level: int) -> int:
-	if level < 0 or level >= slide_gaps.size():
-		return slide_gaps[slide_gaps.size() - 1]
-	return slide_gaps[level]
+## Everything the generator needs to know about one level of one mode. Kept in
+## one place so the play screen never has to know which table feeds which mode.
+func recipe_for(level: int, mode: int) -> Dictionary:
+	var recipe := {"gaps": 0, "blanks": 0, "walls": 0, "colors": 1}
+	if mode == PipesModes.TURN:
+		recipe["colors"] = _at(turn_colors, level)
+		recipe["gaps"] = _at(turn_gaps, level)
+	elif mode == PipesModes.SHIFT:
+		# A shifting board leaves holes, and fills every one of them with a
+		# pipe-less block: the decoys travel with their column, so the board is
+		# never a clean grid of pipe.
+		var holes := _at(shift_gaps, level)
+		recipe["gaps"] = holes
+		recipe["blanks"] = holes
+	elif mode == PipesModes.SLIDE:
+		recipe["gaps"] = _at(slide_gaps, level)
+		recipe["blanks"] = _at(slide_blanks, level)
+		recipe["walls"] = _at(slide_walls, level)
+	return recipe
+
+
+## SLIDE has its own board sizes; the other modes share [levels] `sides`.
+func side_for_mode(level: int, mode: int) -> int:
+	if mode == PipesModes.SLIDE:
+		return _at(slide_sides, level)
+	return side_for(level)
+
+
+func steps_for_mode(level: int, mode: int) -> int:
+	if mode == PipesModes.SLIDE:
+		return _at(slide_steps, level)
+	return steps_for(level)
+
+
+static func _at(table: Array[int], level: int) -> int:
+	if table.is_empty():
+		return 0
+	if level < 0 or level >= table.size():
+		return table[table.size() - 1]
+	return table[level]
 
 
 func color_for(index: int) -> Color:

@@ -37,6 +37,11 @@ var _last_clock_second := -1
 ## something, so the pointer's own cell is not it.
 var _held_cell := -1
 var _history: Array = []
+## The column the keyboard is on, for the mode that shifts columns.
+var _selected_col := 0
+## Loose openings after the last move, so _refresh knows whether the board just
+## gained a join worth playing water through. -1 means "nothing measured yet".
+var _last_loose := -1
 
 
 func begin(settings: PipesSettings, audio: PipesAudio, save: PipesSave,
@@ -100,6 +105,39 @@ func _unhandled_input(event: InputEvent) -> void:
 		if _undo():
 			_audio.play(PipesAudio.CLEAR)
 		_refresh()
+		return
+	# The keyboard is a second way to do the shift mode's one verb: pick a
+	# column, roll it. It does nothing in the other two modes, which have no
+	# column to pick.
+	if _mode != PipesModes.SHIFT:
+		return
+	if event.is_action_pressed(PipesInput.LEFT):
+		_select_column(_selected_col - 1)
+	elif event.is_action_pressed(PipesInput.RIGHT):
+		_select_column(_selected_col + 1)
+	elif event.is_action_pressed(PipesInput.UP):
+		_roll_selected(-1)
+	elif event.is_action_pressed(PipesInput.DOWN):
+		_roll_selected(1)
+
+
+func _select_column(column: int) -> void:
+	if _net.cols <= 0:
+		return
+	_selected_col = clampi(column, 0, _net.cols - 1)
+	_refresh()
+
+
+func _roll_selected(amount: int) -> void:
+	if _finished:
+		return
+	_push_history()
+	if not _net.shift_line(_selected_col, amount):
+		_audio.play(PipesAudio.BLOCKED)
+		return
+	_audio.play_draw(1)
+	_refresh()
+	_check_solved()
 
 
 # --- verbs -------------------------------------------------------------------
@@ -145,9 +183,11 @@ func _on_released() -> void:
 func _shift_line(from_cell: int, to_cell: int) -> void:
 	if _net.row_of(from_cell) == _net.row_of(to_cell):
 		return
-	# A negative amount walks the contents one cell toward the high end.
-	var moved := _net.shift_line(_net.col_of(from_cell), false,
-			-1 if to_cell > from_cell else 1)
+	# A positive amount walks the contents one cell toward the high end, so
+	# dragging downward moves the column down. This was backwards first time
+	# round (DECISION_LOG 102).
+	var moved := _net.shift_line(_net.col_of(from_cell),
+			1 if to_cell > from_cell else -1)
 	if not moved:
 		return
 	_audio.play_draw(1)
@@ -182,7 +222,7 @@ func _direction_between(from_cell: int, to_cell: int) -> int:
 ## The one thing all three modes call progress: every opening faces another
 ## opening, and nothing opens onto the edge of the board.
 func _check_solved() -> void:
-	if _net.piece_count() == 0 or not _net.is_joined():
+	if not _net.has_pipe() or not _net.is_joined():
 		return
 	_finished = true
 	_finish_delay = 0.0
@@ -224,15 +264,15 @@ func _undo() -> bool:
 
 func _deal() -> void:
 	_rng.randomize()
-	var side := _settings.side_for(_level_index)
-	var gaps := _settings.gaps_for(_level_index) if _mode == PipesModes.SLIDE else 0
-	var steps := _settings.steps_for(_level_index)
+	var side := _settings.side_for_mode(_level_index, _mode)
+	var recipe := _settings.recipe_for(_level_index, _mode)
+	var steps := _settings.steps_for_mode(_level_index, _mode)
 	_net.setup(side, side)
-	_answer = PipesNetGenerator.build(_rng, _net, gaps, PipesModes.shuffle_for(_mode), steps)
+	_answer = PipesNetGenerator.build(_rng, _net, recipe, PipesModes.shuffle_for(_mode), steps)
 	if _answer.is_empty():
 		# Never worth a failed level: deal a shallower wreck.
-		_answer = PipesNetGenerator.build(_rng, _net, gaps, PipesModes.shuffle_for(_mode),
-				maxi(4, steps / 2))
+		_answer = PipesNetGenerator.build(_rng, _net, recipe,
+				PipesModes.shuffle_for(_mode), maxi(4, steps / 2))
 	_hint_on = false
 	_elapsed_ms = 0
 	_finish_delay = 0.0
@@ -240,6 +280,8 @@ func _deal() -> void:
 	_last_clock_second = -1
 	_held_cell = -1
 	_history = []
+	_selected_col = 0
+	_last_loose = -1
 	_layout()
 
 
@@ -253,13 +295,20 @@ func _layout() -> void:
 
 
 func _refresh() -> void:
-	_board_view.refresh(_net, _answer, _hint_on)
+	# Water runs only when something new has joined -- replaying the sweep on
+	# every move would make the board flicker while nothing is happening.
+	var loose := _net.loose_openings()
+	if _last_loose >= 0 and loose < _last_loose:
+		_board_view.start_flow(_net)
+	_last_loose = loose
+	var column := _selected_col if _mode == PipesModes.SHIFT else -1
+	_board_view.refresh(_net, _answer, _hint_on, column)
 	_refresh_hud()
 	_refresh_overlay()
 
 
 func _refresh_hud() -> void:
-	var readout := "LOOSE %d   PIECES %d" % [_net.joined_count(), _net.piece_count()]
+	var readout := "LOOSE %d   PIECES %d" % [_net.loose_openings(), _net.piece_count()]
 	_hud.refresh(_level_index, _elapsed_ms, PipesModes.name_of(_mode), readout)
 
 
@@ -271,7 +320,7 @@ func _refresh_overlay() -> void:
 	lines.append("MODE %s  LEVEL %d" % [PipesModes.name_of(_mode), _level_index])
 	lines.append("SIDE %d  PIECES %d  GAPS %d" % [_net.rows, _net.piece_count(),
 			_net.cell_count() - _net.piece_count()])
-	lines.append("LOOSE OPENINGS %d" % _net.joined_count())
+	lines.append("LOOSE OPENINGS %d" % _net.loose_openings())
 	lines.append("JOINED %s" % ("yes" if _net.is_joined() else "no"))
 	lines.append("UNDO %d" % _history.size())
 	lines.append("HINT %d  ANSWER %d" % [1 if _hint_on else 0,

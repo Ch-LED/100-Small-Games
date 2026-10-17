@@ -12,10 +12,18 @@ const PREFIX := "pipes_"
 
 const ERASE := PREFIX + "erase"
 const UNDO := PREFIX + "undo"
+const LEFT := PREFIX + "left"
+const RIGHT := PREFIX + "right"
+const UP := PREFIX + "up"
+const DOWN := PREFIX + "down"
 
 const BINDINGS := {
 	ERASE: ["erase"],
 	UNDO: ["key_z"],
+	LEFT: ["arrow_left", "wasd_left"],
+	RIGHT: ["arrow_right", "wasd_right"],
+	UP: ["arrow_up", "wasd_up"],
+	DOWN: ["arrow_down", "wasd_down"],
 }
 
 

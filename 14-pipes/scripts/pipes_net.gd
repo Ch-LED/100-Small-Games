@@ -3,34 +3,48 @@ extends RefCounted
 
 ## A grid of pipe pieces, where a piece is a mask of the sides it opens onto.
 ##
-## This one class serves three of the four modes -- turning, sliding a whole
-## row, sliding a piece into a gap. What separates them is only what the player
-## may do to the grid and how a deal was shuffled, never what the grid is or
-## what "joined" means. So the modes share every rule below and differ in one
-## small verb each (spec 5).
+## This one class serves three of the four modes -- turning, shifting a whole
+## column, sliding a piece into a gap. What separates them is only what the
+## player may do to the grid and how a deal was shuffled, never what the grid is
+## or what "joined" means.
 ##
-## Bit per side: north 1, east 2, south 4, west 8. A piece's mask says where it
-## opens; a piece with one opening is an end, two is a run or an elbow, three a
-## tee, four a crossing.
+## A piece is **eight bits**, not four: the low nibble is one channel's
+## openings, the high nibble is a second channel's. An ordinary piece uses only
+## the low nibble; an overpass uses both, and the two channels do not meet --
+## which is the whole point of an overpass (spec 4.2).
+##
+## Bit per side: north 1, east 2, south 4, west 8.
+##
+## Colour belongs to the **cell**, not to the piece. That matters: pieces move
+## when the player slides them, and if colour moved with them a wrecked board
+## would be unsolvable by construction -- the colours would have scattered.
+## With colour pinned to the floor, every deal stays solvable for exactly the
+## reason it did before (spec 4.3).
 
 const NORTH := 1
 const EAST := 2
 const SOUTH := 4
 const WEST := 8
 const SIDES := [NORTH, EAST, SOUTH, WEST]
-## Bit of the neighbour on the far side of each of those.
 const OPPOSITE := {NORTH: SOUTH, EAST: WEST, SOUTH: NORTH, WEST: EAST}
 const STEPS := {NORTH: Vector2i(0, -1), EAST: Vector2i(1, 0),
 		SOUTH: Vector2i(0, 1), WEST: Vector2i(-1, 0)}
 
 const EMPTY := -1
+## A piece with no openings at all: a block that fills the cell but carries no
+## pipe. Movable like any other piece; it just cannot be part of a run.
+const BLANK := 0
 
 var rows := 5
 var cols := 5
-## One mask per cell, or EMPTY.
+## One 8-bit piece per cell, or EMPTY.
 var pieces := PackedInt32Array()
-## Which cells start pinned. A turning mode has none; the sliding modes use
-## them for the frame a piece cannot be dragged out of.
+## Which colour this cell belongs to. Colour is a property of the floor.
+var colors := PackedInt32Array()
+## One cell per colour is marked as that colour's source.
+var sources := PackedByteArray()
+## A pinned cell is a wall: it holds a piece but will not move, and nothing
+## slides through it.
 var pinned := PackedByteArray()
 
 
@@ -40,6 +54,12 @@ func setup(rows_in: int, cols_in: int) -> void:
 	pieces = PackedInt32Array()
 	pieces.resize(rows * cols)
 	pieces.fill(EMPTY)
+	colors = PackedInt32Array()
+	colors.resize(rows * cols)
+	colors.fill(0)
+	sources = PackedByteArray()
+	sources.resize(rows * cols)
+	sources.fill(0)
 	pinned = PackedByteArray()
 	pinned.resize(rows * cols)
 	pinned.fill(0)
@@ -85,17 +105,48 @@ func neighbour(cell: int, side: int) -> int:
 	return index_of(row, col)
 
 
-static func turn_cw(mask: int) -> int:
-	return ((mask << 1) | (mask >> 3)) & 0xF
+# --- piece geometry ----------------------------------------------------------
+
+static func channel_a(mask: int) -> int:
+	return mask & 0xF
 
 
-static func turn_ccw(mask: int) -> int:
-	return ((mask >> 1) | (mask << 3)) & 0xF
+static func channel_b(mask: int) -> int:
+	return (mask >> 4) & 0xF
+
+
+## Every side the piece opens onto, whichever channel it belongs to.
+static func openings(mask: int) -> int:
+	return (mask | (mask >> 4)) & 0xF
+
+
+static func is_overpass(mask: int) -> bool:
+	return channel_b(mask) != 0
 
 
 static func opening_count(mask: int) -> int:
+	return _popcount(openings(mask))
+
+
+static func turn_cw(mask: int) -> int:
+	return _rot_cw(channel_a(mask)) | (_rot_cw(channel_b(mask)) << 4)
+
+
+static func turn_ccw(mask: int) -> int:
+	return _rot_ccw(channel_a(mask)) | (_rot_ccw(channel_b(mask)) << 4)
+
+
+static func _rot_cw(bits: int) -> int:
+	return ((bits << 1) | (bits >> 3)) & 0xF
+
+
+static func _rot_ccw(bits: int) -> int:
+	return ((bits >> 1) | (bits << 3)) & 0xF
+
+
+static func _popcount(bits: int) -> int:
 	var count := 0
-	var remaining := mask
+	var remaining := bits & 0xF
 	while remaining:
 		remaining &= remaining - 1
 		count += 1
@@ -115,49 +166,105 @@ func turn(cell: int, clockwise: bool) -> bool:
 
 # --- the one thing all three modes agree on ----------------------------------
 
-## Joined means every opening has an opening facing back at it, and nothing
-## opens onto the edge of the board. An empty cell is fine -- it is a gap, not
-## a loose end (spec 4.1).
+## Joined means every opening has an opening facing back at it, **in the same
+## colour**, and nothing opens onto the edge of the board.
+##
+## Colour is checked here rather than at the source, because it is what makes
+## two runs side by side stay two runs. An empty cell is fine -- it is a gap,
+## not a loose end; so is a cell with no openings at all.
 func is_joined() -> bool:
+	var loose := loose_openings()
+	return loose == 0 and has_pipe()
+
+
+func loose_openings() -> int:
+	var loose := 0
 	for cell in cell_count():
 		var mask := pieces[cell]
 		if mask == EMPTY:
 			continue
+		var bits := openings(mask)
 		for side in SIDES:
-			if mask & side == 0:
+			if bits & side == 0:
 				continue
 			var other := neighbour(cell, side)
-			if other < 0:
-				return false
-			var other_mask := pieces[other]
-			if other_mask == EMPTY or (other_mask & (OPPOSITE[side] as int)) == 0:
-				return false
+			if other < 0 or not _fits(cell, side, other):
+				loose += 1
+	return loose
+
+
+func _fits(cell: int, side: int, other: int) -> bool:
+	var other_mask := pieces[other]
+	if other_mask == EMPTY:
+		return false
+	if colors[other] != colors[cell]:
+		return false
+	if openings(other_mask) & (OPPOSITE[side] as int) == 0:
+		return false
+	# Two channels meeting means they have to be the same channel: an overpass
+	# does not connect its two halves, and neither does it connect across.
+	return _shared_channel(pieces[cell], side, other_mask, OPPOSITE[side] as int)
+
+
+static func _shared_channel(first: int, first_side: int, second: int,
+		second_side: int) -> bool:
+	if (channel_a(first) & first_side) != 0:
+		if (channel_a(second) & second_side) != 0:
+			return true
+	if (channel_b(first) & first_side) != 0:
+		if (channel_b(second) & second_side) != 0:
+			return true
+	return false
+
+
+## Does the piece at `cell` on `side` face something that faces back?
+func mouth_fits(cell: int, side: int) -> bool:
+	var other := neighbour(cell, side)
+	return other >= 0 and _fits(cell, side, other)
+
+
+## True when every opening on this piece faces something. A piece with one
+## loose opening stays dark, which is what makes a lit pipe mean a joined one.
+func piece_is_joined(cell: int) -> bool:
+	var mask := pieces[cell]
+	if mask == EMPTY:
+		return false
+	var bits := openings(mask)
+	if bits == 0:
+		return false
+	for side in SIDES:
+		if bits & side != 0 and not mouth_fits(cell, side):
+			return false
 	return true
 
 
-func joined_count() -> int:
-	var open := 0
+func color_count() -> int:
+	var highest := -1
 	for cell in cell_count():
-		var mask := pieces[cell]
-		if mask == EMPTY:
-			continue
-		for side in SIDES:
-			if mask & side == 0:
-				continue
-			var other := neighbour(cell, side)
-			if other < 0:
-				open += 1
-				continue
-			var other_mask := pieces[other]
-			if other_mask == EMPTY or (other_mask & (OPPOSITE[side] as int)) == 0:
-				open += 1
-	return open
+		if colors[cell] > highest:
+			highest = colors[cell]
+	return highest + 1
+
+
+func has_pipe() -> bool:
+	for cell in cell_count():
+		if pieces[cell] != EMPTY and openings(pieces[cell]) != 0:
+			return true
+	return false
 
 
 func piece_count() -> int:
 	var count := 0
 	for cell in cell_count():
 		if pieces[cell] != EMPTY:
+			count += 1
+	return count
+
+
+func pipe_count() -> int:
+	var count := 0
+	for cell in cell_count():
+		if pieces[cell] != EMPTY and openings(pieces[cell]) != 0:
 			count += 1
 	return count
 
@@ -175,31 +282,31 @@ func rotate_random(rng: RandomNumberGenerator, turns: int) -> void:
 		if movable.is_empty():
 			return
 		var pick: int = movable[rng.randi_range(0, movable.size() - 1)]
-		turn(pick, rng.randi_range(0, 1) == 0)
+		if openings(pieces[pick]) != 0:
+			turn(pick, rng.randi_range(0, 1) == 0)
 
 
-## Shifts a whole row sideways or a whole column up or down, wrapping around.
-## Wrapping is what makes it reversible: nothing falls off the board, so the
-## same shift in the other direction puts it back (spec 5.2).
-func shift_line(index: int, horizontal: bool, amount: int) -> bool:
-	if amount == 0:
+## Shifts a whole column up or down, wrapping around. Wrapping is what makes it
+## reversible: nothing falls off the board, so the same shift the other way puts
+## it back (spec 5.2).
+##
+## Refused outright when the column holds a wall -- a wall that moved would not
+## be a wall, and a column that shifted around one would tear it in half.
+func shift_line(column: int, amount: int) -> bool:
+	if column < 0 or column >= cols or amount == 0:
 		return false
-	# `index` names a row when shifting horizontally and a column otherwise;
-	# `line` is how many cells are in the thing being shifted, which is the
-	# other dimension's count, not this one.
-	var line := cols if horizontal else rows
-	var wrapped := ((amount % line) + line) % line
+	var wrapped := ((amount % rows) + rows) % rows
 	if wrapped == 0:
 		return false
+	for row in rows:
+		if pinned[index_of(row, column)] != 0:
+			return false
 	var saved := PackedInt32Array()
-	saved.resize(line)
-	for step in line:
-		var cell := index_of(index, step) if horizontal else index_of(step, index)
-		saved[step] = pieces[cell]
-	for step in line:
-		var from := (step - wrapped + line) % line
-		var cell := index_of(index, step) if horizontal else index_of(step, index)
-		pieces[cell] = saved[from]
+	saved.resize(rows)
+	for row in rows:
+		saved[row] = pieces[index_of(row, column)]
+	for row in rows:
+		pieces[index_of(row, column)] = saved[(row - wrapped + rows) % rows]
 	return true
 
 
@@ -211,7 +318,7 @@ func slide_step(cell: int, direction: int) -> int:
 	if not has_piece(cell) or pinned[cell] != 0:
 		return -1
 	var target := neighbour(cell, direction)
-	if target < 0 or pieces[target] != EMPTY:
+	if target < 0 or pieces[target] != EMPTY or pinned[target] != 0:
 		return -1
 	pieces[target] = pieces[cell]
 	pieces[cell] = EMPTY
