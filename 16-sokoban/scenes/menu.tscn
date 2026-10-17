@@ -1,0 +1,62 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://16-sokoban/scripts/sokoban_menu.gd" id="1_menu"]
+
+[node name="Menu" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_menu")
+
+[node name="Backdrop" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.031, 0.043, 0.078, 1)
+mouse_filter = 2
+
+[node name="Center" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Column" type="VBoxContainer" parent="Center"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="Center/Column"]
+layout_mode = 2
+horizontal_alignment = 1
+
+[node name="Continue" type="Button" parent="Center/Column"]
+layout_mode = 2
+text = "CONTINUE"
+
+[node name="Progress" type="Label" parent="Center/Column"]
+layout_mode = 2
+horizontal_alignment = 1
+
+[node name="Restart" type="Button" parent="Center/Column"]
+layout_mode = 2
+text = "START FROM LEVEL 1"
+
+[node name="Spacer" type="Control" parent="Center/Column"]
+custom_minimum_size = Vector2(0, 28)
+layout_mode = 2
+
+[node name="Back" type="Button" parent="Center/Column"]
+layout_mode = 2
+text = "BACK TO HUB"
+
+[node name="Hint" type="Label" parent="Center/Column"]
+layout_mode = 2
+horizontal_alignment = 1
