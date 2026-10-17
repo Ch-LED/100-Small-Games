@@ -80,24 +80,28 @@ func animate_clear(cells: Array[int]) -> void:
 	queue_redraw()
 
 
-## `before` is the board as it was, so the cells that moved can be spotted by
-## comparison rather than by the board reporting its own internals.
-func animate_fall(before: PackedInt32Array, after: PackedInt32Array) -> void:
-	var moved: Array[int] = []
-	for cell in after.size():
-		if cell < before.size() and before[cell] != after[cell]:
-			moved.append(cell)
-	if moved.is_empty():
+## Each gem slides the distance it actually fell, and each fresh gem falls in
+## from above the board. Both come from the board's own record of the pass, so
+## the animation cannot disagree with what happened (DECISION_LOG 109).
+func animate_fall(moves: Array, spawns: Array[int]) -> void:
+	if moves.is_empty() and spawns.is_empty():
 		return
-	var drop := Vector2(0.0, -_settings.cell_size)
+	var starts: Dictionary = {}
+	for move in moves:
+		var from_cell: int = move.x
+		var to_cell: int = move.y
+		starts[to_cell] = _pixel(from_cell) - _pixel(to_cell)
+	for cell in spawns:
+		starts[cell] = Vector2(0.0,
+				-_settings.cell_size * (float(_board.row_of(cell)) + 1.0))
 	var tween := create_tween()
 	tween.tween_method(func(t: float) -> void:
-		for cell in moved:
-			_offsets[cell] = drop * (1.0 - t)
+		for cell in starts:
+			_offsets[cell] = (starts[cell] as Vector2) * (1.0 - t)
 		queue_redraw()
 	, 0.0, 1.0, _settings.fall_time)
 	await tween.finished
-	for cell in moved:
+	for cell in starts:
 		_offsets.erase(cell)
 	queue_redraw()
 
@@ -141,6 +145,28 @@ func _draw_gem(index: int, kind: int, cell: float) -> void:
 	if _ghost and _selected == index:
 		ink = _settings.super_color
 	_draw_shape(kind, centre, radius, ink, cell)
+	var charge := _board.special[index]
+	if charge != BejeweledBoard.Special.NONE:
+		_draw_charge(charge, centre, radius, fade)
+
+
+## A charge keeps the gem's colour and adds a mark: a ringed cross for a bomb,
+## a diamond for a lightning. It has to be legible against all six gem colours,
+## so it is drawn in white with the gem showing through.
+func _draw_charge(charge: int, centre: Vector2, radius: float, fade: float) -> void:
+	var ink := Color(1.0, 1.0, 1.0, maxf(fade, 0.0))
+	if charge == BejeweledBoard.Special.BOMB:
+		draw_arc(centre, radius * 0.52, 0.0, TAU, 16, ink, 2.0, true)
+		var arm := radius * 0.28
+		draw_line(centre - Vector2(arm, 0.0), centre + Vector2(arm, 0.0), ink, 2.0)
+		draw_line(centre - Vector2(0.0, arm), centre + Vector2(0.0, arm), ink, 2.0)
+	else:
+		draw_polygon(PackedVector2Array([
+			centre + Vector2(0.0, -radius * 0.5),
+			centre + Vector2(radius * 0.3, 0.0),
+			centre + Vector2(0.0, radius * 0.5),
+			centre + Vector2(-radius * 0.3, 0.0),
+		]), PackedColorArray([ink]))
 
 
 ## Six distinct outlines, so the board reads even when the colours do not --

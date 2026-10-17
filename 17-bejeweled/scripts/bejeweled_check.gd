@@ -19,6 +19,7 @@ func _initialize() -> void:
 	_check_swaps()
 	_check_gravity(rng)
 	_check_moves()
+	_check_specials(rng)
 	_check_config()
 	print("\n%d passed, %d failed" % [_passed, _failed])
 	quit(1 if _failed > 0 else 0)
@@ -132,6 +133,17 @@ func _check_gravity(rng: RandomNumberGenerator) -> void:
 	var moved := full.apply_gravity(rng)
 	_check("a full board falls nowhere", moved == 0)
 
+	# The view slides each gem the distance it actually fell, so the board has
+	# to say where every gem came from and which cells were refilled.
+	var drop := _blank(4, 1, 4)
+	drop.cells = PackedInt32Array([0, -1, 2, -1])
+	drop.apply_gravity(rng)
+	_check("the fall records both moved gems", drop.last_moves.size() == 2)
+	_check("the fall records the two refills", drop.last_spawns.size() == 2)
+	_check("every move ends where the gem now is",
+			drop.gem_at((drop.last_moves[0] as Vector2i).y) >= 0
+			and drop.gem_at((drop.last_moves[1] as Vector2i).y) >= 0)
+
 	var cleared := _blank(2, 2, 4)
 	cleared.cells = PackedInt32Array([0, 1, 2, 3])
 	cleared.clear([0, 3])
@@ -159,6 +171,59 @@ func _check_moves() -> void:
 	_check("a 2x2 board has no legal swap", not stuck.has_move())
 	_check("a board with no legal swap points at nothing", stuck.find_move().is_empty())
 	_check("has_move and find_move agree", board.has_move() == (board.find_move().size() == 2))
+
+
+## Charges: a run of four leaves a bomb, five leaves a lightning, and a charge
+## caught in another charge's blast goes off too (DECISION_LOG 109).
+func _check_specials(rng: RandomNumberGenerator) -> void:
+	var four := _blank(1, 5, 6)
+	four.cells = PackedInt32Array([0, 0, 0, 0, 1])
+	var rewards := four.pending_rewards()
+	_check("a run of four earns a charge", rewards.size() == 1)
+	_check("four earns a bomb",
+			not rewards.is_empty()
+			and int(rewards[0]["special"]) == BejeweledBoard.Special.BOMB)
+
+	var five := _blank(1, 6, 6)
+	five.cells = PackedInt32Array([0, 0, 0, 0, 0, 1])
+	var big := five.pending_rewards()
+	_check("five earns the bigger charge", not big.is_empty()
+			and int(big[0]["special"]) == BejeweledBoard.Special.LIGHTNING)
+
+	var three := _blank(1, 4, 6)
+	three.cells = PackedInt32Array([0, 0, 0, 1])
+	_check("a run of three earns nothing", three.pending_rewards().is_empty())
+
+	var bomb := _blank(5, 5, 6)
+	bomb.set_special(12, BejeweledBoard.Special.BOMB)
+	_check("a bomb takes nine cells", bomb.expand_specials([12]).size() == 9)
+
+	var bolt := _blank(5, 5, 6)
+	bolt.set_special(12, BejeweledBoard.Special.LIGHTNING)
+	_check("a lightning takes its row and column", bolt.expand_specials([12]).size() == 9)
+
+	var chained := _blank(5, 5, 6)
+	chained.set_special(12, BejeweledBoard.Special.BOMB)
+	chained.set_special(13, BejeweledBoard.Special.BOMB)
+	_check("a charge caught in a blast goes off too",
+			chained.expand_specials([12]).size() > 9)
+
+	var plain := _blank(3, 3, 6)
+	_check("a quiet gem takes only itself", plain.expand_specials([4]).size() == 1)
+
+	# A charge rides down with its gem and never rides into a fresh one.
+	var falling := _blank(3, 1, 6)
+	falling.set_gem(0, 2)
+	falling.set_special(0, BejeweledBoard.Special.BOMB)
+	falling.apply_gravity(rng)
+	_check("a charge falls with its gem",
+			falling.special[2] == BejeweledBoard.Special.BOMB)
+	_check("a fresh gem carries no charge",
+			falling.special[0] == BejeweledBoard.Special.NONE
+			and falling.special[1] == BejeweledBoard.Special.NONE)
+	falling.clear([2])
+	_check("clearing takes the charge with it",
+			falling.special[2] == BejeweledBoard.Special.NONE)
 
 
 func _check_config() -> void:

@@ -137,6 +137,12 @@ func _take_turn(first: int, second: int) -> void:
 	_refresh()
 	await _board_view.animate_swap(first, second)
 	if _board.matched_cells().is_empty():
+		if _ghost:
+			# Under the `]` cheat a swap does not have to score: the player is
+			# rearranging the board, and a move that happens to make nothing is
+			# still a move they meant to make (DECISION_LOG 109).
+			_busy = false
+			return
 		# Nothing came of it: put them back, and make the refusal audible so
 		# the player knows the swap was seen and turned down, not missed.
 		_board.swap(first, second)
@@ -157,14 +163,22 @@ func _resolve_cascades() -> void:
 		if matched.is_empty():
 			break
 		cascade += 1
-		_score += matched.size() * _settings.per_gem * cascade
+		# Charges earned this pass are decided before anything is cleared, so
+		# they are planted where the run was, not where the board fell to.
+		var rewards := _board.pending_rewards()
+		# A charge caught in this clear goes off too, and the set grows with it.
+		var clearing := _board.expand_specials(matched)
+		_score += clearing.size() * _settings.per_gem * cascade
 		_audio.play_clear(cascade)
-		await _board_view.animate_clear(matched)
-		_board.clear(matched)
-		var before := _board.cells.duplicate()
+		await _board_view.animate_clear(clearing)
+		_board.clear(clearing)
+		for reward in rewards:
+			_board.set_gem(int(reward["cell"]), int(reward["kind"]))
+			_board.set_special(int(reward["cell"]), int(reward["special"]))
+			_audio.play(BejeweledAudio.CASCADE)
 		_board.apply_gravity(_rng)
 		_refresh()
-		await _board_view.animate_fall(before, _board.cells)
+		await _board_view.animate_fall(_board.last_moves, _board.last_spawns)
 	# A board with no move is a dead end; deal a fresh one rather than leave
 	# the player staring at it.
 	if not _board.has_move():
