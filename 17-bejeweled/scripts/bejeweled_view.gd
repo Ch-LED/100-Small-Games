@@ -20,6 +20,11 @@ var _selected := -1
 var _cursor := -1
 var _hint: Array[int] = []
 var _ghost := false
+## The cells a charge is going off in, and how far through it is. Drawn as a
+## ring that spreads and fades, so a blast reads as a blast and not as a
+## sudden absence (DECISION_LOG 110).
+var _blasts: Array[int] = []
+var _blast_progress := 0.0
 
 signal cell_clicked(cell: int)
 signal cell_hovered(cell: int)
@@ -64,6 +69,22 @@ func animate_swap(first: int, second: int) -> void:
 	await tween.finished
 	_offsets.erase(first)
 	_offsets.erase(second)
+	queue_redraw()
+
+
+## A charge going off: the board holds still while the ring spreads. The play
+## screen waits for this before it clears anything, which is what "physics is
+## frozen during a charge" means in practice (DECISION_LOG 110).
+func animate_blast(cells: Array[int], duration: float) -> void:
+	_blasts = cells.duplicate()
+	_blast_progress = 0.0
+	var tween := create_tween()
+	tween.tween_method(func(t: float) -> void:
+		_blast_progress = t
+		queue_redraw()
+	, 0.0, 1.0, duration)
+	await tween.finished
+	_blasts.clear()
 	queue_redraw()
 
 
@@ -128,6 +149,16 @@ func _draw() -> void:
 		if kind < 0:
 			continue
 		_draw_gem(index, kind, cell)
+	if not _blasts.is_empty():
+		_draw_blasts(cell)
+
+
+func _draw_blasts(cell: float) -> void:
+	for index in _blasts:
+		var centre := _pixel(index) + Vector2(cell, cell) * 0.5
+		var reach := cell * (0.15 + _blast_progress * 1.15)
+		var ink := Color(1.0, 1.0, 1.0, (1.0 - _blast_progress) * 0.9)
+		draw_arc(centre, reach, 0.0, TAU, 20, ink, 3.0, true)
 
 
 func _draw_cell_ring(index: int, cell: float, ink: Color, width: float) -> void:
@@ -160,13 +191,25 @@ func _draw_charge(charge: int, centre: Vector2, radius: float, fade: float) -> v
 		var arm := radius * 0.28
 		draw_line(centre - Vector2(arm, 0.0), centre + Vector2(arm, 0.0), ink, 2.0)
 		draw_line(centre - Vector2(0.0, arm), centre + Vector2(0.0, arm), ink, 2.0)
-	else:
+	elif charge == BejeweledBoard.Special.LIGHTNING:
 		draw_polygon(PackedVector2Array([
 			centre + Vector2(0.0, -radius * 0.5),
 			centre + Vector2(radius * 0.3, 0.0),
 			centre + Vector2(0.0, radius * 0.5),
 			centre + Vector2(-radius * 0.3, 0.0),
 		]), PackedColorArray([ink]))
+	else:
+		# A wireframe cube: two squares offset, joined at the corners. It reads
+		# as "this one is not a gem any more" from across the room.
+		var reach := radius * 0.58
+		var front := Rect2(centre - Vector2(reach, reach) * 0.5, Vector2(reach, reach))
+		var shift := Vector2(reach * 0.34, -reach * 0.34)
+		draw_rect(Rect2(front.position + shift, front.size), ink, false, 2.0)
+		draw_rect(front, ink, false, 2.0)
+		for corner in [Vector2(0.0, 0.0), Vector2(1.0, 0.0),
+				Vector2(0.0, 1.0), Vector2(1.0, 1.0)]:
+			draw_line(front.position + front.size * corner,
+					front.position + shift + front.size * corner, ink, 1.5)
 
 
 ## Six distinct outlines, so the board reads even when the colours do not --

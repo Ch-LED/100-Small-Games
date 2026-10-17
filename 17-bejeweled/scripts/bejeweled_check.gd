@@ -190,6 +190,19 @@ func _check_specials(rng: RandomNumberGenerator) -> void:
 	_check("five earns the bigger charge", not big.is_empty()
 			and int(big[0]["special"]) == BejeweledBoard.Special.LIGHTNING)
 
+	# Direction matters at five: a horizontal five is a lightning, a vertical
+	# five is a hypercube.
+	var vertical := _blank(5, 1, 6)
+	vertical.cells = PackedInt32Array([0, 0, 0, 0, 0])
+	var tall := vertical.pending_rewards()
+	_check("a vertical five earns a hypercube", not tall.is_empty()
+			and int(tall[0]["special"]) == BejeweledBoard.Special.HYPERCUBE)
+	var flat := _blank(1, 5, 6)
+	flat.cells = PackedInt32Array([0, 0, 0, 0, 0])
+	var wide := flat.pending_rewards()
+	_check("a horizontal five earns a lightning", not wide.is_empty()
+			and int(wide[0]["special"]) == BejeweledBoard.Special.LIGHTNING)
+
 	var three := _blank(1, 4, 6)
 	three.cells = PackedInt32Array([0, 0, 0, 1])
 	_check("a run of three earns nothing", three.pending_rewards().is_empty())

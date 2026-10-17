@@ -14,7 +14,7 @@ const EMPTY := -1
 ## A gem can carry a charge, earned by making a longer line. It is still a gem
 ## of its own colour -- the charge only decides what happens when it is cleared
 ## (DECISION_LOG 109).
-enum Special { NONE, BOMB, LIGHTNING }
+enum Special { NONE, BOMB, LIGHTNING, HYPERCUBE }
 
 var rows := 8
 var cols := 8
@@ -201,9 +201,15 @@ func _collect_runs(runs: Array[Dictionary], line: int, horizontal: bool) -> void
 
 
 ## What a run is worth as a charge, if anything.
-static func reward_for(length: int) -> int:
+##
+## The direction matters at five: a horizontal five leaves a lightning, which
+## clears a row and a column where it lands, while a vertical five leaves a
+## hypercube -- a charge that is not triggered by being cleared at all, but by
+## being swapped, which is why the two cannot be the same piece
+## (DECISION_LOG 110).
+static func reward_for(length: int, horizontal: bool) -> int:
 	if length >= 5:
-		return Special.LIGHTNING
+		return Special.LIGHTNING if horizontal else Special.HYPERCUBE
 	if length >= 4:
 		return Special.BOMB
 	return Special.NONE
@@ -217,7 +223,7 @@ func pending_rewards() -> Array[Dictionary]:
 	var used := {}
 	for run in matched_runs():
 		var run_cells: Array = run["cells"]
-		var charge := reward_for(run_cells.size())
+		var charge := reward_for(run_cells.size(), bool(run["horizontal"]))
 		if charge == Special.NONE:
 			continue
 		var middle: int = run_cells[run_cells.size() / 2]

@@ -14,6 +14,11 @@ signal menu_requested
 
 const PAUSE_SCENE := preload("res://17-bejeweled/scenes/pause_menu.tscn")
 const FINISH_DELAY := 0.9
+## How long a charge takes to go off. The board holds still for it -- that is
+## the price of the effect being legible (DECISION_LOG 110).
+const CHARGE_TIME := 0.8
+## The gap between charges when two hypercubes set off the whole board.
+const CHARGE_STAGGER := 0.12
 
 @onready var _board_view: BejeweledView = $Board
 @onready var _hud: BejeweledHud = $Hud
@@ -131,8 +136,25 @@ func _on_cell_clicked(cell: int) -> void:
 	_take_turn(first, cell)
 
 
+## A turn is decided before any of it is animated: the two hypercube cases are
+## not swaps at all in the ordinary sense -- a hypercube fires when it is moved,
+## not when it is cleared -- so they get their own paths (DECISION_LOG 110).
 func _take_turn(first: int, second: int) -> void:
 	_busy = true
+	var first_cube := _board.special[first] == BejeweledBoard.Special.HYPERCUBE
+	var second_cube := _board.special[second] == BejeweledBoard.Special.HYPERCUBE
+	if first_cube and second_cube:
+		await _hypercube_pair(first, second)
+	elif first_cube:
+		await _hypercube_single(first, second)
+	elif second_cube:
+		await _hypercube_single(second, first)
+	else:
+		await _normal_turn(first, second)
+	_busy = false
+
+
+func _normal_turn(first: int, second: int) -> void:
 	_board.swap(first, second)
 	_refresh()
 	await _board_view.animate_swap(first, second)
@@ -141,7 +163,6 @@ func _take_turn(first: int, second: int) -> void:
 			# Under the `]` cheat a swap does not have to score: the player is
 			# rearranging the board, and a move that happens to make nothing is
 			# still a move they meant to make (DECISION_LOG 109).
-			_busy = false
 			return
 		# Nothing came of it: put them back, and make the refusal audible so
 		# the player knows the swap was seen and turned down, not missed.
@@ -149,11 +170,67 @@ func _take_turn(first: int, second: int) -> void:
 		_audio.play(BejeweledAudio.REJECT)
 		_refresh()
 		await _board_view.animate_swap(first, second)
-		_busy = false
 		return
 	_audio.play(BejeweledAudio.SWAP)
 	await _resolve_cascades()
-	_busy = false
+
+
+## A hypercube swapped with a gem takes every gem of that gem's kind with it,
+## including itself. "Any gem" means any colour; the two still have to touch,
+## same as every other swap.
+func _hypercube_single(cube: int, other: int) -> void:
+	_board.swap(cube, other)
+	_refresh()
+	await _board_view.animate_swap(cube, other)
+	var target := _board.gem_at(cube)
+	var clearing: Array[int] = [other]
+	for cell in _board.cell_count():
+		if _board.gem_at(cell) == target:
+			clearing.append(cell)
+	await _detonate(clearing, 1)
+	await _resolve_cascades()
+
+
+## Two hypercubes swapped set off every charge on the board, top to bottom, let
+## everything settle, and then take the whole board.
+func _hypercube_pair(first: int, second: int) -> void:
+	_board.swap(first, second)
+	_refresh()
+	await _board_view.animate_swap(first, second)
+	var charges: Array[int] = []
+	for cell in _board.cell_count():
+		if _board.special[cell] != BejeweledBoard.Special.NONE:
+			charges.append(cell)
+	charges.sort_custom(func(a: int, b: int) -> bool:
+		if _board.row_of(a) != _board.row_of(b):
+			return _board.row_of(a) < _board.row_of(b)
+		return a < b)
+	for cell in charges:
+		await _board_view.animate_blast([cell], CHARGE_STAGGER)
+	_board.apply_gravity(_rng)
+	_refresh()
+	await _board_view.animate_fall(_board.last_moves, _board.last_spawns)
+	var everything: Array[int] = []
+	for cell in _board.cell_count():
+		if _board.gem_at(cell) >= 0:
+			everything.append(cell)
+	await _detonate(everything, 1)
+	await _resolve_cascades()
+
+
+## Blows a set of cells up: the ring spreads first, nothing moves until it has,
+## and only then do the cells go. That pause is the "physics frozen during a
+## charge" the round is built around.
+func _detonate(cells: Array[int], cascade: int) -> void:
+	if cells.is_empty():
+		return
+	_score += cells.size() * _settings.per_gem * cascade
+	_audio.play_clear(cascade)
+	await _board_view.animate_blast(cells, CHARGE_TIME)
+	_board.clear(cells)
+	_board.apply_gravity(_rng)
+	_refresh()
+	await _board_view.animate_fall(_board.last_moves, _board.last_spawns)
 
 
 func _resolve_cascades() -> void:
@@ -168,9 +245,19 @@ func _resolve_cascades() -> void:
 		var rewards := _board.pending_rewards()
 		# A charge caught in this clear goes off too, and the set grows with it.
 		var clearing := _board.expand_specials(matched)
+		var charged := false
+		for cell in clearing:
+			if _board.special[cell] != BejeweledBoard.Special.NONE:
+				charged = true
+				break
 		_score += clearing.size() * _settings.per_gem * cascade
 		_audio.play_clear(cascade)
-		await _board_view.animate_clear(clearing)
+		if charged:
+			# A charge takes its time; an ordinary clear is quick so the board
+			# keeps moving.
+			await _board_view.animate_blast(clearing, CHARGE_TIME)
+		else:
+			await _board_view.animate_clear(clearing)
 		_board.clear(clearing)
 		for reward in rewards:
 			_board.set_gem(int(reward["cell"]), int(reward["kind"]))
