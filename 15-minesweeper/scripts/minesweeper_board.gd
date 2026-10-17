@@ -244,6 +244,38 @@ func is_lost() -> bool:
 	return exploded >= 0
 
 
+## The cells a single number proves to be mines: a number whose remaining count
+## is exactly the number of cells still hidden around it, so every one of them
+## must be a mine.
+##
+## This is what the `]` cheat shows. It deliberately stops at one step of
+## reasoning -- the player still has to find the safe cells and do the rest,
+## it just spares them the arithmetic they were about to do anyway
+## (DECISION_LOG 106).
+func deducible_mines() -> PackedByteArray:
+	var out := PackedByteArray()
+	out.resize(cell_count())
+	out.fill(0)
+	if not seeded or exploded >= 0:
+		return out
+	for cell in cell_count():
+		if revealed[cell] == 0 or adjacent[cell] == 0:
+			continue
+		var marked := 0
+		var hidden: Array[int] = []
+		for neighbour in neighbours_of(cell):
+			if flags[neighbour] == Flag.MARK:
+				marked += 1
+			elif revealed[neighbour] == 0:
+				hidden.append(neighbour)
+		if hidden.is_empty():
+			continue
+		if adjacent[cell] - marked == hidden.size():
+			for hidden_cell in hidden:
+				out[hidden_cell] = 1
+	return out
+
+
 ## What the player has uncovered so far, for the debug overlay.
 func mine_at(cell: int) -> bool:
 	return mines[cell] != 0

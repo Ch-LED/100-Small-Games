@@ -18,6 +18,7 @@ func _initialize() -> void:
 	_check_reveal(rng)
 	_check_flags()
 	_check_chord(rng)
+	_check_deduction()
 	_check_win(rng)
 	_check_levels()
 	print("\n%d passed, %d failed" % [_passed, _failed])
@@ -148,6 +149,47 @@ func _check_chord(rng: RandomNumberGenerator) -> void:
 	_check("the wrong chord is recorded", wrong.is_lost())
 
 	var _unused := rng
+
+
+## The `]` cheat: a single number whose remaining count equals the number of
+## cells still hidden around it proves every one of them. One step of
+## reasoning, no more (DECISION_LOG 106).
+func _check_deduction() -> void:
+	var board := _blank(1, 3, 2)
+	board.mines[0] = 1
+	board.mines[2] = 1
+	board._recount()
+	board.seeded = true
+	var before := board.deducible_mines()
+	_check("nothing is deduced with no number open", before[0] == 0 and before[2] == 0)
+
+	board.revealed[1] = 1
+	var deduced := board.deducible_mines()
+	_check("a two with two hidden neighbours proves both",
+			deduced[0] == 1 and deduced[2] == 1)
+	_check("the open number is not called a mine", deduced[1] == 0)
+
+	board.toggle_flag(0)
+	deduced = board.deducible_mines()
+	_check("a flag counts against the number", deduced[2] == 1)
+	_check("a flagged cell is not deduced again", deduced[0] == 0)
+
+	board.toggle_flag(2)
+	deduced = board.deducible_mines()
+	_check("nothing is deduced once everything around is flagged",
+			deduced[0] == 0 and deduced[2] == 0)
+	board.toggle_flag(2)
+
+	# A number that is already satisfied must not point at anything.
+	var calm := _blank(1, 3, 1)
+	calm.mines[0] = 1
+	calm._recount()
+	calm.seeded = true
+	calm.revealed[1] = 1
+	calm.toggle_flag(0)
+	var quiet := calm.deducible_mines()
+	_check("a satisfied number deduces nothing", quiet[2] == 0)
+	_check("a deduction never points at an open cell", quiet[1] == 0)
 
 
 func _check_win(rng: RandomNumberGenerator) -> void:

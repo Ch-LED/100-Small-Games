@@ -18,8 +18,10 @@ var _hovered := -1
 var _cursor := -1
 ## The `[` key: opening a cell will not detonate it.
 var _safe_mode := false
-## The `]` key: every mine is shown, whether it has been found or not.
+## The `]` key: the mines a single number proves. Not the whole answer -- the
+## reasoning the player was about to do anyway, and no more.
 var _peek := false
+var _deduced := PackedByteArray()
 ## Set once the game is over, so the whole board is shown.
 var _finished := false
 
@@ -46,6 +48,9 @@ func refresh(board: MinesweeperBoard, cursor: int, safe_mode: bool, peek: bool,
 	_safe_mode = safe_mode
 	_peek = peek
 	_finished = finished
+	# Deducing is a scan of the whole board, so it happens when something asks
+	# for it rather than on every redraw.
+	_deduced = board.deducible_mines() if peek and board != null else PackedByteArray()
 	if board != null:
 		custom_minimum_size = Vector2(board.cols * _settings.cell_size,
 				board.rows * _settings.cell_size)
@@ -83,11 +88,13 @@ func _draw_cell(index: int, corner: Vector2, cell: float) -> void:
 	draw_line(corner, corner + Vector2(cell, 0.0), _settings.hidden_edge, edge)
 	draw_line(corner, corner + Vector2(0.0, cell), _settings.hidden_edge, edge)
 
-	# A mine shown through the `]` key, or every mine once the game is over.
-	if _finished or _peek:
+	# Once the game is over every mine is shown; while it is running the `]`
+	# key shows only the ones a single number proves.
+	if _finished:
 		if _board.has_mine(index):
-			var ink := _settings.super_color if _peek and not _finished else _settings.mine_color
-			draw_circle(corner + Vector2(cell, cell) * 0.5, cell * 0.26, ink)
+			draw_circle(corner + Vector2(cell, cell) * 0.5, cell * 0.26, _settings.mine_color)
+	elif _peek and index < _deduced.size() and _deduced[index] != 0:
+		draw_circle(corner + Vector2(cell, cell) * 0.5, cell * 0.26, _settings.super_color)
 
 	var mark := _board.flags[index]
 	if mark == MinesweeperBoard.Flag.MARK:
